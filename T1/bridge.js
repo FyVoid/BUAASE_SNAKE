@@ -6,7 +6,7 @@ import Module from './module.cjs'
 const wasm = await Module();
 // 使用 cwrap 函数方便的包装 C 中的函数
 // 使用方法：cwrap(函数名, 返回值类型, 参数列表)
-const c_func = wasm.cwrap('_func', 'number', ['array', 'array']);
+const c_func = wasm.cwrap('_func_t1', 'number', ['array', 'array']);
 
 // 测试时真正调用的方法
 export const greedy_snake_move = (snake_pos, food_pos) => {

@@ -33,4 +33,4 @@ enum Direction {
 };
 
 int32_t default_snake_move(Vec2 head, Vec2 body1);
-int32_t snake_move(int32_t* snake_pos, int32_t* food_pos);
+int32_t snake_move_t1(int32_t* snake_pos, int32_t* food_pos);
