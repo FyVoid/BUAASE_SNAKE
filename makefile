@@ -1,5 +1,5 @@
 out:
-	emcc lib.cpp wrapper.cpp -O3 -o module.cjs \
+	em++ lib.cpp wrapper.cpp -O3 -o module.cjs \
 	-s EXPORTED_RUNTIME_METHODS='["cwrap", "ccall"]' \
 	-s WASM=1 -s MODULARIZE=1
 

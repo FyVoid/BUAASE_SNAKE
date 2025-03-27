@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdint.h>
+#include <vector>
 
 struct Vec2 {
     int32_t x;
@@ -10,14 +10,11 @@ struct Vec2 {
 struct Snake {
     Vec2 head;
     Vec2 body[3];
-
-    Snake(int32_t* snake_pos) {
-        head.x = snake_pos[0];
-        head.y = snake_pos[1];
-        for (int i = 0; i < 3; i++) {
-            body[i].x = snake_pos[2 + i * 2];
-            body[i].y = snake_pos[3 + i * 2];
-        }
+    Snake(std::vector<Vec2> snake_pos) {
+        head = snake_pos[0];
+        body[0] = snake_pos[1];
+        body[1] = snake_pos[2];
+        body[2] = snake_pos[3];
     }
 };
 
@@ -32,5 +29,9 @@ enum Direction {
     RIGHT = 3
 };
 
+template <typename T>
+std::vector<T> make_vector(void* arr, int32_t size);
+
 int32_t default_snake_move(Vec2 head, Vec2 body1);
 int32_t snake_move_t1(int32_t* snake_pos, int32_t* food_pos);
+int32_t snake_move_t2(int32_t* snake_pos, int32_t* food_pos, int32_t* barrier_pos);

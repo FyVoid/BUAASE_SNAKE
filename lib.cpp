@@ -22,8 +22,15 @@ int32_t default_snake_move(Vec2 head, Vec2 body1) {
     }
 }
 
+template <typename T>
+std::vector<T> make_vector(void* arr, int32_t size) {
+    std::vector<T> vec(size);
+    memcpy(vec.data(), arr, size * sizeof(T));
+    return vec;
+}
+
 int32_t snake_move_t1(int32_t* snake_pos, int32_t* food_pos) {
-    auto snake = Snake(snake_pos);
+    auto snake = Snake(make_vector<Vec2>(snake_pos, 4));
     auto food = Vec2{food_pos[0], food_pos[1]};
 
     auto food_dir = food - snake.head;
@@ -41,4 +48,13 @@ int32_t snake_move_t1(int32_t* snake_pos, int32_t* food_pos) {
     }
 
     return default_snake_move(snake.head, snake.body[0]);
-} 
+}
+
+int32_t snake_move_t2(int32_t* snake_pos, int32_t* food_pos, int32_t* barrier_pos) {
+    auto snake = Snake(make_vector<Vec2>(snake_pos, 4));
+    auto food = Vec2{food_pos[0], food_pos[1]};
+    auto barrier = make_vector<Vec2>(barrier_pos, 12);
+
+    // Apply djkstra
+    
+}
