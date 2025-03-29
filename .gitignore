@@ -3,3 +3,8 @@
 .vscode/
 module.cjs
 module.wasm
+
+*.txt
+*.txt.out
+
+*.pyc
