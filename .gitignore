@@ -3,3 +3,5 @@
 .vscode/
 module.cjs
 module.wasm
+
+target/
