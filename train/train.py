@@ -10,14 +10,14 @@ import torch.optim as optim
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(input_dim, 8)
-        self.fc2 = nn.Linear(8, 32)
-        self.fc3 = nn.Linear(32, output_dim)
+        self.fc1 = nn.Linear(input_dim, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, output_dim)
 
         # Initialize weights using Xavier initialization
-        nn.init.xavier_uniform_(self.fc1.weight)
-        nn.init.xavier_uniform_(self.fc2.weight)
-        nn.init.xavier_uniform_(self.fc3.weight)
+        # nn.init.xavier_uniform_(self.fc1.weight)
+        # nn.init.xavier_uniform_(self.fc2.weight)
+        # nn.init.xavier_uniform_(self.fc3.weight)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -27,7 +27,8 @@ class DQN(nn.Module):
 
 # Hyperparameters
 GAMMA = 0.95
-LEARNING_RATE = 0.001
+EPSILON = 1.0
+LEARNING_RATE = 0.0001
 BATCH_SIZE = 64
 
 # Optimize the model
@@ -43,8 +44,14 @@ def optimize_model(policy_net, target_net, optimizer):
         end[i, :] = e
         next_states[i, :] = n.view(-1, 8 * 8 * 7)
 
-    current_q_values = policy_net(batch).max(1)[0]
-    action_indices = policy_net(batch).argmax(1)
+    current_q_values = policy_net(batch)
+    action_indices = current_q_values.max(-1)[1]
+    if torch.rand(1) < EPSILON:
+        action_indices = torch.randint(0, 4, (BATCH_SIZE,))
+        current_q_values = current_q_values.gather(1, action_indices.view(-1, 1)).squeeze()
+    else:
+        current_q_values = current_q_values.max(-1)[0]
+    print(action_indices)
     target_states = torch.zeros(BATCH_SIZE, 8 * 8 * 7)
     for i in range(BATCH_SIZE):
         target_states[i, :] = next_states[i, action_indices[i], :]
@@ -55,7 +62,6 @@ def optimize_model(policy_net, target_net, optimizer):
     for i in range(BATCH_SIZE):
         target_end[i] = end[i, action_indices[i]]
     next_q_values = target_net(target_states).max(1)[0]
-    print(next_q_values)
     target_q_values = target_reward + (GAMMA * next_q_values * (1 - target_end))
 
     loss = nn.MSELoss()(current_q_values, target_q_values)
@@ -77,11 +83,14 @@ def train_dqn(num_episodes):
     optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
 
     for episode in range(num_episodes):
-        
+        global EPSILON
         loss = optimize_model(policy_net, target_net, optimizer)
 
         target_net.load_state_dict(policy_net.state_dict())
         print(f"Episode {episode}, Total Loss: {loss}")
+        
+        EPSILON = max(0.1, EPSILON * 0.95)
+        print(EPSILON)
 
     # Save the trained model parameters to a file
     for name, param in policy_net.state_dict().items():
@@ -93,4 +102,4 @@ def train_dqn(num_episodes):
     return policy_net
 
 if __name__ == "__main__":
-    train_dqn(100)
+    train_dqn(5000)

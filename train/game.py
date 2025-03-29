@@ -54,6 +54,8 @@ def genBoard():
                 board[food_x][food_y] = torch.tensor([0, 0, 0, 0, 0, 0, 1])
                 foods.append((food_x, food_y))
                 break
+            
+    board = torch.where(torch.all(board == 0, dim=-1, keepdim=True), torch.tensor([1, 0, 0, 0, 0, 0, 0]), board)
     
     reward = torch.zeros(4)
     
@@ -130,6 +132,6 @@ def calcReward(head, body, barriers, foods, choice):
         newDist += calcDist2Food((head[0] + choice[0], head[1] + choice[1]), barriers, food)
 
     if newDist < oldDist:
-        return 0.4
+        return 0.8
     
     return 0.1
