@@ -40,8 +40,8 @@ class DQNAgent:
         np.random.seed(seed)
         torch.manual_seed(seed)
 
-        self.policy_net = DQN(state_size, action_size).to(config.DEVICE)
-        self.target_net = DQN(state_size, action_size).to(config.DEVICE)
+        self.policy_net = DQN().to(config.DEVICE)
+        self.target_net = DQN().to(config.DEVICE)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
 

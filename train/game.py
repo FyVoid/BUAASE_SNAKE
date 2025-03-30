@@ -19,9 +19,10 @@ BARRIER_TENSOR = torch.tensor([0, 0, 0, 1, 0, 0, 0], dtype=torch.float32)
 FOOD_TENSOR = torch.tensor([0, 0, 0, 0, 0, 0, 1], dtype=torch.float32)
 
 # Rewards
-REWARD_FOOD = 10.0
-REWARD_DEATH = -10.0
-REWARD_STEP = -0.01
+REWARD_FOOD = 1
+REWARD_DEATH = -1
+REWARD_CLOSER = 0.4
+REWARD_STEP = -0.1
 
 class Direction(Enum):
     # Value: (Action Index, (dx, dy)) - ensure indices match NN output (0, 1, 2, 3)
@@ -229,13 +230,27 @@ class SnakeGame:
             self.dead = True
             return self.board, REWARD_DEATH, True
 
-        # 2. Check for food
+        # 2. Calculate distance to every food before action
+        head = self.snake[0]
+        distances_before = [abs(head[0] - fx) + abs(head[1] - fy) for fx, fy in self.foods]
+
+        # 3. Check for food
         if new_head in self.foods:
             self.foods.remove(new_head)
             reward = REWARD_FOOD
             self.score += 1
         else:
             reward = REWARD_STEP
+
+        # 4. Calculate distance to every food after action
+        distances_after = [abs(new_head[0] - fx) + abs(new_head[1] - fy) for fx, fy in self.foods]
+
+        # 5. Adjust reward based on proximity to food
+        if distances_before and distances_after:
+            sum_distance_before = min(distances_before)
+            sum_distance_after = min(distances_after)
+            if sum_distance_after < sum_distance_before:
+                reward += REWARD_CLOSER
 
         # 3. Update snake position
         self.snake.insert(0, new_head) # Add new head
