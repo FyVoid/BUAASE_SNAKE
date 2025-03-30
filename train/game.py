@@ -21,7 +21,7 @@ FOOD_TENSOR = torch.tensor([0, 0, 0, 0, 0, 0, 1], dtype=torch.float32)
 # Rewards
 REWARD_FOOD = 1
 REWARD_DEATH = -1
-REWARD_CLOSER = 0.4
+REWARD_CLOSER = 0.6
 REWARD_STEP = -0.1
 
 class Direction(Enum):

@@ -10,7 +10,8 @@ class DQN(nn.Module):
         self.conv1 = nn.Conv2d(in_channels=state_features, out_channels=hidden1, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(in_channels=hidden1, out_channels=hidden2, kernel_size=5, stride=1, padding=2)
         self.conv3 = nn.Conv2d(in_channels=hidden2, out_channels=hidden3, kernel_size=3, stride=1, padding=1)
-        self.fc = nn.Linear(hidden3 * int(state_size / state_features), action_size)
+        self.fc1 = nn.Linear(hidden3 * int(state_size / state_features), 128)
+        self.fc2 = nn.Linear(128, action_size)
 
     def forward(self, state):
         state = state.permute(0, 3, 1, 2)
@@ -18,5 +19,5 @@ class DQN(nn.Module):
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = x.reshape(x.shape[0], -1)  # Flatten the tensor for the fully connected layer
-        x = self.fc(x)
+        x = self.fc2(F.relu(self.fc1(x)))
         return x
