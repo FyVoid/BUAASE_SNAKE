@@ -1,25 +1,9 @@
 #include <queue>
 #include <stdint.h>
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <iostream>
 #include "lib.hpp"
-
-Vec2 operator+(const Vec2& lhs, const Vec2& rhs) {
-    return {lhs.x + rhs.x, lhs.y + rhs.y};
-}
-Vec2 operator-(const Vec2& lhs, const Vec2& rhs) {
-    return {lhs.x - rhs.x, lhs.y - rhs.y};
-}
-bool operator<(const Vec2& lhs, const Vec2& rhs) {
-    return lhs.x == rhs.x ? lhs.y < rhs.y : lhs.x < rhs.x;
-}
-bool operator==(const Vec2& lhs, const Vec2& rhs) {
-    return lhs.x == rhs.x && lhs.y == rhs.y;
-}
-bool operator!=(const Vec2& lhs, const Vec2& rhs) {
-    return !(lhs == rhs);
-}
 
 int32_t default_snake_move(Vec2 head, Vec2 body1) {
     if (head.x + 1 <= 8 && head.x + 1 != body1.x) {
@@ -73,44 +57,51 @@ int32_t snake_move_t1(int32_t* snake_pos, int32_t* food_pos) {
     return default_snake_move(snake.head, snake.body[0]);
 }
 
-std::vector<Vec2> find_shortest_path(Snake& snake, Vec2 food, std::vector<Vec2>& barrier) {
+std::vector<Snake> find_shortest_path(Snake& snake, Vec2 food, std::vector<Vec2>& barrier) {
     // Implement Dijkstra's algorithm or A* algorithm to find the shortest path
-    std::vector<Vec2> path;
+    std::vector<Snake> path;
+    
+    // std::cout << "begin" << std::endl;
 
-    std::queue<Snake> queue{};
-    std::map<Vec2, Vec2> visited{};
+    std::priority_queue<std::tuple<Snake, int32_t>, std::vector<std::tuple<Snake, int32_t>>, DistComparer> queue{};
+    std::unordered_map<Snake, Snake, std::hash<Snake>, SnakeValidComparer> visited{};
 
-    queue.push(snake);
+    queue.push({snake, 0});
     while (true) {
         if (queue.empty()) {
             break;
         }
-        auto current_snake = queue.front();
+        auto [current_snake, dist] = queue.top();
         queue.pop();
 
         if (current_snake.head == food) {
-            path.push_back(current_snake.head);
+            path.push_back(current_snake);
             break;
         }
 
+        std::cout << "current_snake: " << current_snake.head.x << " " << current_snake.head.y << std::endl;
+        std::cout << "dist: " << dist << std::endl;
+
         for (const auto& dir : {UP, DOWN, LEFT, RIGHT}) {
             Vec2 new_head = current_snake.head + dir2Vec(dir);
+            // std::cout << "new_head: " << new_head.x << " " << new_head.y << std::endl;
             if (new_head.x < 1 || new_head.x > 8 || new_head.y < 1 || new_head.y > 8) {
                 continue; // Out of bounds
             }
             if (std::find(barrier.begin(), barrier.end(), new_head) != barrier.end()) {
                 continue; // Hit a barrier
             }
-            if (visited.find(new_head) != visited.end()) {
-                continue; // Already visited
-            }
             if (new_head.x == current_snake.body[0].x && new_head.y == current_snake.body[0].y) {
                 continue; // Hit the snake's body
             }
-
-            visited.insert({new_head, current_snake.head});
             Snake new_snake = Snake(std::vector<Vec2>{new_head, current_snake.head, current_snake.body[0], current_snake.body[1]});
-            queue.push(new_snake);
+            if (visited.find(new_snake) != visited.end()) {
+                continue; // Already visited
+            }
+
+            // std::cout << "take" << std::endl;
+            visited.insert({new_snake, current_snake});
+            queue.push({new_snake, dist + 1});
         }
     }
 
@@ -118,10 +109,10 @@ std::vector<Vec2> find_shortest_path(Snake& snake, Vec2 food, std::vector<Vec2>&
         return path; // No path found
     }
 
-    while (path.front() != snake.head) {
+    while (true) {
         auto current = path.front();
-        auto prev = visited[current];
-        if (prev == snake.head) {
+        auto prev = visited.find(current)->second;
+        if (prev.head == snake.head && prev.body[0] == snake.body[0]) {
             break;
         }
         path.insert(path.begin(), prev);
@@ -141,5 +132,5 @@ int32_t snake_move_t2(int32_t* snake_pos, int32_t* food_pos, int32_t* barrier_po
         return Direction::NONE;
     }
 
-    return snake.to(path[0]);
+    return snake.to(path[0].head);
 }
