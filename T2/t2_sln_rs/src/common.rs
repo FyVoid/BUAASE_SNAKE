@@ -33,7 +33,7 @@ impl DirectionMarker {
     const U: usize = 1;
     const L: usize = 2;
     const D: usize = 4;
-    const R: usize = 5;
+    const R: usize = 8;
 
     pub fn empty() -> Self {
         DirectionMarker(0)
