@@ -61,7 +61,7 @@ std::vector<Snake> find_shortest_path(Snake& snake, Vec2 food, std::vector<Vec2>
     // Implement Dijkstra's algorithm or A* algorithm to find the shortest path
     std::vector<Snake> path;
     
-    // std::cout << "begin" << std::endl;
+    // // std::cout << "begin" << std::endl;
 
     std::priority_queue<std::tuple<Snake, int32_t>, std::vector<std::tuple<Snake, int32_t>>, DistComparer> queue{};
     std::unordered_map<Snake, Snake, std::hash<Snake>, SnakeValidComparer> visited{};
@@ -79,12 +79,12 @@ std::vector<Snake> find_shortest_path(Snake& snake, Vec2 food, std::vector<Vec2>
             break;
         }
 
-        std::cout << "current_snake: " << current_snake.head.x << " " << current_snake.head.y << std::endl;
-        std::cout << "dist: " << dist << std::endl;
+        // std::cout << "current_snake: " << current_snake.head.x << " " << current_snake.head.y << std::endl;
+        // std::cout << "dist: " << dist << std::endl;
 
         for (const auto& dir : {UP, DOWN, LEFT, RIGHT}) {
             Vec2 new_head = current_snake.head + dir2Vec(dir);
-            // std::cout << "new_head: " << new_head.x << " " << new_head.y << std::endl;
+            // // std::cout << "new_head: " << new_head.x << " " << new_head.y << std::endl;
             if (new_head.x < 1 || new_head.x > 8 || new_head.y < 1 || new_head.y > 8) {
                 continue; // Out of bounds
             }
@@ -99,7 +99,7 @@ std::vector<Snake> find_shortest_path(Snake& snake, Vec2 food, std::vector<Vec2>
                 continue; // Already visited
             }
 
-            // std::cout << "take" << std::endl;
+            // // std::cout << "take" << std::endl;
             visited.insert({new_snake, current_snake});
             queue.push({new_snake, dist + 1});
         }
