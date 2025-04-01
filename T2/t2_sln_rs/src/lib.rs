@@ -187,30 +187,20 @@ fn pathfinding<const N: usize>(
     init_dir: Direction,
     target: &Point,
 ) -> Option<Direction> {
-    // Basic BFS setup
     let mut queue: VecDeque<Point> = VecDeque::new();
     let mut visited: HashSet<Point> = HashSet::new();
-    // Stores predecessor information to reconstruct the path:
-    // Key: Point reached
-    // Value: (Point it came from, Direction taken from predecessor to reach key)
+
     let mut predecessor: HashMap<Point, (Point, Direction)> = HashMap::new();
 
-    // Handle edge case: source is the same as target. No path needed.
     if source == target {
-        return None; // Or define behavior based on game rules.
+        return None;
     }
 
-    // Initialize BFS starting from the source point.
     queue.push_back(*source);
     visited.insert(*source);
 
-    // Main BFS loop
     while let Some(current_point) = queue.pop_front() {
-        // Explore neighbors in all four directions
         for &dir in &[Direction::U, Direction::L, Direction::D, Direction::R] {
-            // --- Constraint Check: Initial Move ---
-            // If we are considering the first step from the source,
-            // ensure it's not the direct opposite of the snake's current direction.
             if current_point == *source {
                 let opposite_init_dir = match init_dir {
                     Direction::U => Direction::D,
@@ -219,75 +209,38 @@ fn pathfinding<const N: usize>(
                     Direction::R => Direction::L,
                 };
                 if dir == opposite_init_dir {
-                    continue; // Skip this direction, invalid first move.
+                    continue;
                 }
             }
 
-            // Calculate the coordinates of the neighboring point.
             let next_point = current_point.step(dir);
 
-            // --- Validation Checks for `next_point` ---
-
-            // 1. Bounds Check: Is the neighbor within the board?
-            if !board.inbounds(next_point) {
-                continue; // Out of bounds.
-            }
-
-            // 2. Passability Check: Is the neighbor tile traversable?
-            //    Only Empty and Food tiles are considered passable.
-            //    Barriers, snake body parts (if marked), etc., block the path.
-            let is_passable = match board.get_tile(next_point) {
-                Some(Tile::Empty(_)) | Some(Tile::Food(_)) => true, // Allow tiles potentially marked with depth by `reachable`
-                _ => false, // Impassable tile (Barrier, SnakeBody, SnakeHead, None)
-            };
+            let is_passable = matches!(board.get_tile(next_point), Some(Tile::Empty(_)) | Some(Tile::Food(_)));
             if !is_passable {
-                continue; // Blocked tile.
+                continue;
             }
 
-            // 3. Visited Check: Have we already found a path to this neighbor?
-            //    BFS guarantees the first time we visit a node is via a shortest path.
             if visited.contains(&next_point) {
-                continue; // Already visited via an equally short or shorter path.
+                continue;
             }
 
-            // --- Valid Neighbor Found ---
-
-            // Mark the neighbor as visited.
             visited.insert(next_point);
-            // Record how we reached this neighbor (for path reconstruction).
             predecessor.insert(next_point, (current_point, dir));
-            // Add the neighbor to the queue for further exploration.
             queue.push_back(next_point);
 
-            // --- Target Check ---
-            // Have we reached the target destination?
             if next_point == *target {
-                // Yes! Target found. Now, reconstruct the path backward from the target
-                // to the source to find the very first step taken.
-                let mut trace = next_point; // Start backtracking from the target.
+                let mut trace = next_point; 
                 loop {
-                    // Retrieve the predecessor and the direction used to reach `trace`.
-                    // This entry is guaranteed to exist in the `predecessor` map.
                     let (prev_point, step_dir) = predecessor[&trace];
 
-                    // Check if the predecessor is the original source point.
                     if prev_point == *source {
-                        // Found the step immediately following the source.
-                        // `step_dir` is the first direction of the shortest path.
                         return Some(step_dir);
                     }
-                    // Move one step back along the path.
                     trace = prev_point;
                 }
-                // This loop always terminates because we know a path exists
-                // (we just found the target) and the predecessor map correctly
-                // traces back to the source.
             }
         }
     }
-
-    // If the queue becomes empty and we haven't returned yet, it means
-    // the target is unreachable from the source under the given constraints.
     None
 }
 
