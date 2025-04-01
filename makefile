@@ -3,6 +3,11 @@ out:
 	-s EXPORTED_RUNTIME_METHODS='["cwrap", "ccall"]' \
 	-s WASM=1 -s MODULARIZE=1
 
+lib:
+	clang++ -c lib.cpp c_wrapper.cpp -O3
+	ar rcs lib.a lib.o c_wrapper.o
+	rm lib.o c_wrapper.o
+
 t1: out
 	cp module.cjs module.wasm t1
 	make -C ./T1
