@@ -3,26 +3,29 @@ from typing import Tuple, List, Optional, Set
 import torch
 import random as rd
 from enum import Enum
+import config
 
-GRID_SIZE = 8
-NUM_BARRIERS = 12
-NUM_FOODS = 5
+GRID_SIZE = config.GRID_SIZE
+NUM_BARRIERS = config.NUM_BARRIERS
+NUM_FOODS = config.NUM_FOODS
 SNAKE_LENGTH = 4
 
 # One-hot vector 
-EMPTY_TENSOR = torch.tensor([1, 0, 0, 0, 0, 0, 0], dtype=torch.float32)
-HEAD_TENSOR = torch.tensor([0, 1, 0, 0, 0, 0, 0], dtype=torch.float32)
-BODY_TENSOR = torch.tensor([0, 0, 1, 0, 0, 0, 0], dtype=torch.float32)
-BARRIER_TENSOR = torch.tensor([0, 0, 0, 1, 0, 0, 0], dtype=torch.float32)
-# ENEMY_HEAD_TENSOR = torch.tensor([0, 0, 0, 0, 1, 0, 0], dtype=torch.float32) # Not used
-# ENEMY_BODY_TENSOR = torch.tensor([0, 0, 0, 0, 0, 1, 0], dtype=torch.float32) # Not used
-FOOD_TENSOR = torch.tensor([0, 0, 0, 0, 0, 0, 1], dtype=torch.float32)
+UNDEFINED_TENSOR = torch.tensor([0, 0, 0, 0, 0, 0], dtype=torch.float32)
+EMPTY_TENSOR = torch.tensor([1, 0, 0, 0, 0, 0], dtype=torch.float32)
+HEAD_TENSOR = torch.tensor([0, 1, 0, 0, 0, 0], dtype=torch.float32)
+BODY_TENSOR = torch.tensor([0, 0, 1, 0, 0, 0], dtype=torch.float32)
+ENEMY_HEAD_TENSOR = torch.tensor([0, 0, 0, 1, 0, 0], dtype=torch.float32)
+ENEMY_BODY_TENSOR = torch.tensor([0, 0, 0, 0, 1, 0], dtype=torch.float32)
+FOOD_TENSOR = torch.tensor([0, 0, 0, 0, 0, 1], dtype=torch.float32)
+
 
 # Rewards
-REWARD_FOOD = 1
-REWARD_DEATH = -1
-REWARD_CLOSER = 0.6
-REWARD_STEP = -0.1
+REWARD_FOOD = config.REWARD_FOOD
+REWARD_DEATH = config.REWARD_DEATH
+REWARD_CLOSER = config.REWARD_CLOSER
+REWARD_STEP = config.REWARD_STEP
+REWARD_KILL = config.REWARD_KILL
 
 class Direction(Enum):
     # Value: (Action Index, (dx, dy)) - ensure indices match NN output (0, 1, 2, 3)
@@ -37,25 +40,41 @@ class Direction(Enum):
             if direction.value[0] == index:
                 return direction
         raise ValueError(f"Invalid action index: {index}")
+    
+class EnemyFrame:
+    def __init__(self, snake: List[Tuple[int, int]], alive: bool, state: torch.Tensor):
+        self.snake = snake
+        self.alive = alive
+        self.state = state
 
 class SnakeGame:
-    def __init__(self, grid_size=GRID_SIZE, num_barriers=NUM_BARRIERS, num_foods=NUM_FOODS, snake_length=SNAKE_LENGTH):
+    def __init__(self, grid_size=GRID_SIZE, num_barriers=NUM_BARRIERS, num_foods=NUM_FOODS, snake_length=SNAKE_LENGTH, enemy_snake_count=config.ENEMY_SNAKE_COUNT, game_mode=config.GAME_MODE):
         self.grid_size = grid_size
         self.num_barriers = num_barriers
         self.num_foods = num_foods
         self.snake_length = max(1, snake_length) # Ensure at least length 1
+        self.enemy_snake_count = enemy_snake_count
+        self.game_mode = game_mode
+        
+        if self.game_mode == "1v1":
+            self.init_positions = [
+                [(0, 3), (0, 2), (0, 1), (0, 0)], # Snake 1
+                [(4, 1), (4, 2), (4, 3), (4, 4)], # Snake 2
+            ]
+        else:
+            self.init_positions = [
+                [(3, 0), (2, 0), (1, 0), (0, 0)],
+                [(7, 3), (7, 2), (7, 1), (7, 0)],
+                [(4, 7), (5, 7), (6, 7), (7, 7)],
+                [(0, 4), (0, 5), (0, 6), (0, 7)],
+            ]
 
-        self.init_board: Optional[torch.Tensor] = None
-        self.init_snake: List[Tuple[int, int]] = []
-        self.init_foods: List[Tuple[int, int]] = []
-        self.init_barriers: List[Tuple[int, int]] = []
-
-        self.board: Optional[torch.Tensor] = None
+        self.board: torch.Tensor
         self.snake: List[Tuple[int, int]] = []
+        self.enemies: List[EnemyFrame] = []
         self.foods: List[Tuple[int, int]] = []
-        self.barriers: List[Tuple[int, int]] = []
         self.dead: bool = False
-        self.score: int = 0
+        self.total_steps: int = 0
 
         # Possible moves (dx, dy) relative to current position
         self.possible_moves = [(0, 1), (-1, 0), (0, -1), (1, 0)] # Corresponds to U, L, D, R if mapped correctly
@@ -87,117 +106,59 @@ class SnakeGame:
     def genBoard(self):
         """Generates the initial board state including snake, barriers, and food."""
         while True: # Keep trying until a valid board with reachable food is generated
-            board = torch.zeros(self.grid_size, self.grid_size, 7, dtype=torch.float32)
-            snake = []
-            barriers = []
-            foods = []
+            self.board = torch.zeros(self.grid_size, self.grid_size, config.STATE_FEATURES, dtype=torch.float32)
+            self.enemies = [EnemyFrame([], True, torch.zeros(self.grid_size, self.grid_size, config.STATE_FEATURES, dtype=torch.float32)) for _ in range(self.enemy_snake_count)]
+            self.snake = []
+            self.foods = []
+            self.total_steps = 0
 
-            # 1. Place Snake Head
-            head_x = rd.randint(0, self.grid_size - 1)
-            head_y = rd.randint(0, self.grid_size - 1)
-            head = (head_x, head_y)
-            snake.append(head)
-            board[head_x, head_y] = HEAD_TENSOR
+            rd.shuffle(self.init_positions) # Shuffle the initial positions for randomness
+            for i, position in enumerate(self.init_positions):
+                if i == 0: # Player snake
+                    for x, y in position:
+                        self.snake.append((x, y))
+                        self.board[x, y] = HEAD_TENSOR if len(self.snake) == 1 else BODY_TENSOR
+                        for frame in self.enemies:
+                            frame.state[x, y] = ENEMY_HEAD_TENSOR if len(self.snake) == 1 else ENEMY_BODY_TENSOR
+                else: # Enemy snakes
+                    for x, y in position:
+                        self.enemies[i-1].snake.append((x, y))
+                        self.board[x, y] = ENEMY_HEAD_TENSOR if len(self.enemies[i-1].snake) == 1 else ENEMY_BODY_TENSOR
+                        for j, frame in enumerate(self.enemies):
+                            if i - 1 == j:
+                                frame.state[x, y] = HEAD_TENSOR if len(frame.snake) == 1 else BODY_TENSOR
+                            else:
+                                frame.state[x, y] = ENEMY_BODY_TENSOR if len(frame.snake) == 1 else ENEMY_BODY_TENSOR 
 
-            # 2. Place Snake Body
-            current_pos = head
-            placed_body = 0
-            possible_directions = list(self.possible_moves)
-            rd.shuffle(possible_directions)
-            initial_direction = possible_directions[0]
+            while len(self.foods) < self.num_foods:
+                x = rd.randint(0, self.grid_size - 1)
+                y = rd.randint(0, self.grid_size - 1)
+                if (x, y) not in self.snake and (x, y) not in self.foods and not any((x, y) in frame.snake for frame in self.enemies):
+                    self.foods.append((x, y))
+                    self.board[x, y] = FOOD_TENSOR
+                    for frame in self.enemies:
+                        frame.state[x, y] = FOOD_TENSOR
 
-            for _ in range(self.snake_length - 1):
-                moved = False
-                next_x, next_y = current_pos[0] + initial_direction[0], current_pos[1] + initial_direction[1]
-                if (0 <= next_x < self.grid_size and 0 <= next_y < self.grid_size and
-                    (next_x, next_y) not in snake):
-                     current_pos = (next_x, next_y)
-                     snake.append(current_pos)
-                     board[current_pos[0], current_pos[1]] = BODY_TENSOR
-                     placed_body += 1
-                     moved = True
+            for x in range(self.grid_size):
+                for y in range(self.grid_size):
+                    cell = self.board[x, y]
+                    if torch.equal(cell, UNDEFINED_TENSOR):
+                        self.board[x, y] = EMPTY_TENSOR
+                        for frame in self.enemies:
+                            frame.state[x, y] = EMPTY_TENSOR
+                        
+            self.dead = False
+            self.score = 0
+            
+            assert(len(self.snake) == self.snake_length)
+            for frame in self.enemies:
+                assert(len(frame.snake) == self.snake_length)
+                
+            self.drawBoards()
 
-                if not moved:
-                    rd.shuffle(possible_directions)
-                    for dx, dy in possible_directions:
-                         next_x, next_y = current_pos[0] + dx, current_pos[1] + dy
-                         if (0 <= next_x < self.grid_size and 0 <= next_y < self.grid_size and
-                             (next_x, next_y) not in snake):
-                             current_pos = (next_x, next_y)
-                             snake.append(current_pos)
-                             board[current_pos[0], current_pos[1]] = BODY_TENSOR
-                             placed_body += 1
-                             moved = True
-                             break
-                if not moved:
-                     break
+            return self.board.clone()
 
-            if placed_body < self.snake_length - 1:
-                continue
-
-            # 3. Place Barriers
-            occupied = set(snake)
-            placed_barriers = 0
-            while placed_barriers < self.num_barriers:
-                bx, by = rd.randint(0, self.grid_size - 1), rd.randint(0, self.grid_size - 1)
-                pos = (bx, by)
-                if pos not in occupied:
-                    board[bx, by] = BARRIER_TENSOR
-                    barriers.append(pos)
-                    occupied.add(pos)
-                    placed_barriers += 1
-
-            # 4. Place Food
-            placed_foods = 0
-
-            potential_spots = []
-            for r in range(self.grid_size):
-                for c in range(self.grid_size):
-                    if (r, c) not in occupied:
-                         potential_spots.append((r,c))
-            rd.shuffle(potential_spots)
-
-            for fx, fy in potential_spots:
-                pos = (fx, fy)
-                if self._is_reachable(head, pos, set(barriers) | set(snake[1:])):
-                    board[fx, fy] = FOOD_TENSOR
-                    foods.append(pos)
-                    occupied.add(pos) 
-                    placed_foods += 1
-                    if placed_foods == self.num_foods:
-                        break
-
-            if placed_foods < self.num_foods:
-                print(f"Warning: Could only place {placed_foods}/{self.num_foods} reachable foods. Board might be too crowded or generation failed.")
-                if placed_foods == 0:
-                    print("No reachable food spots found. Retrying board generation.")
-                    continue
-
-            # 5. Fill Empty Spaces
-            for r in range(self.grid_size):
-                for c in range(self.grid_size):
-                    if (r, c) not in occupied:
-                        board[r, c] = EMPTY_TENSOR
-
-            self.init_board = board.clone()
-            self.init_snake = list(snake)
-            self.init_foods = list(foods)
-            self.init_barriers = list(barriers)
-            self.reset()
-            break
-
-    def reset(self) -> torch.Tensor:
-        if self.init_board is None:
-            raise RuntimeError("Initial board not generated yet.")
-        self.board = self.init_board.clone()
-        self.snake = list(self.init_snake) # Use copies
-        self.foods = list(self.init_foods)
-        self.barriers = list(self.init_barriers)
-        self.dead = False
-        self.score = 0
-        return self.board
-
-    def step(self, action_index: int) -> Tuple[torch.Tensor, float, bool]:
+    def step(self, action_index: int, enemy_actions: List[int]) -> Tuple[torch.Tensor, float, bool]:
         """
         Performs one step in the game based on the chosen action.
 
@@ -212,135 +173,208 @@ class SnakeGame:
         """
         if self.dead:
             # If already dead, return current state, 0 reward, and done=True
-            return self.board, 0.0, True
+            return self.board.clone(), 0.0, True
+        
+        reward = 0
 
         action = Direction.idx2dir(action_index)
+        enemy_directions = [Direction.idx2dir(enemy_action) for enemy_action in enemy_actions]
         dx, dy = action.value[1]
         head = self.snake[0]
         new_head = (head[0] + dx, head[1] + dy)
 
-        # 1. Check for collisions (Death conditions)
         if not (0 <= new_head[0] < self.grid_size and 0 <= new_head[1] < self.grid_size): # Boundary
             self.dead = True
-            return self.board, REWARD_DEATH, True
-        if new_head in self.barriers: # Barrier collision
-             self.dead = True
-             return self.board, REWARD_DEATH, True
+            return self.board.clone(), REWARD_DEATH, True
         if new_head in self.snake[1:]: # Self collision (ignore head itself)
             self.dead = True
-            return self.board, REWARD_DEATH, True
+            return self.board.clone(), REWARD_DEATH, True
+        for i, frame in enumerate(self.enemies):
+            if frame.alive:
+                edx, edy = enemy_directions[i].value[1]
+                enemy_head = frame.snake[0]
+                enemy_new_head = (enemy_head[0] + edx, enemy_head[1] + edy)
+                if enemy_new_head == new_head or new_head in frame.snake[1:]: # Enemy collision (head-on or body)
+                    self.dead = True
+                    return self.board.clone(), REWARD_DEATH, True
+                
+                if not (0 <= enemy_new_head[0] < self.grid_size and 0 <= enemy_new_head[1] < self.grid_size):
+                    frame.alive = False
+                    continue
+                if enemy_new_head in frame.snake[1:]:
+                    frame.alive = False
+                    reward += REWARD_KILL
+                    continue
+                if enemy_new_head == new_head or enemy_new_head in self.snake[1:]:
+                    frame.alive = False
+                    continue
+                for j, other_frame in enumerate(self.enemies):
+                    if other_frame is not frame and other_frame.alive:
+                        odx, ody = enemy_directions[j].value[1]
+                        other_enemy_head = other_frame.snake[0]
+                        other_enemy_new_head = (other_enemy_head[0] + odx, other_enemy_head[1] + ody)
+                        if enemy_new_head == other_enemy_new_head or enemy_new_head in other_frame.snake[1:]:
+                            frame.alive = False
+                            break
 
-        # 2. Calculate distance to every food before action
+            
         head = self.snake[0]
         distances_before = [abs(head[0] - fx) + abs(head[1] - fy) for fx, fy in self.foods]
-
-        # 3. Check for food
-        if new_head in self.foods:
-            self.foods.remove(new_head)
-            reward = REWARD_FOOD
-            self.score += 1
-        else:
-            reward = REWARD_STEP
-
-        # 4. Calculate distance to every food after action
         distances_after = [abs(new_head[0] - fx) + abs(new_head[1] - fy) for fx, fy in self.foods]
 
-        # 5. Adjust reward based on proximity to food
         if distances_before and distances_after:
             sum_distance_before = min(distances_before)
             sum_distance_after = min(distances_after)
             if sum_distance_after < sum_distance_before:
-                reward += REWARD_CLOSER
+                reward += sum_distance_after / sum_distance_before * REWARD_CLOSER
 
-        # 3. Update snake position
-        self.snake.insert(0, new_head) # Add new head
-
-        # 4. Update board tensor - New Head and Old Head becoming Body
-        self.board[new_head[0], new_head[1]] = HEAD_TENSOR # Place new head
-        if len(self.snake) > 1: # Ensure there was an old head
-             old_head = self.snake[1] # The segment that was previously the head
-             self.board[old_head[0], old_head[1]] = BODY_TENSOR # Old head becomes body
-
-        tail = self.snake.pop()
-        if self.board[tail[0], tail[1]][2] == 1: # Check if it's still marked as body
-             self.board[tail[0], tail[1]] = EMPTY_TENSOR
-
-        done = self.dead or len(self.foods) == 0 # Game over if dead or no food left
-
-        return self.board, reward, done
-
-    def printBoard(self):
-        """Prints a simple text representation of the board."""
-        if self.board is None:
-            print("Board not initialized.")
-            return
-
-        grid = [['.' for _ in range(self.grid_size)] for _ in range(self.grid_size)]
-        # Draw barriers
-        for bx, by in self.barriers:
-             grid[by][bx] = '#' # Use # for barriers
-        # Draw food
-        for fx, fy in self.foods:
-             grid[fy][fx] = '*' # Use * for food
-        # Draw snake body
-        for i, (sx, sy) in enumerate(self.snake):
-             if i == 0:
-                  grid[sy][sx] = 'H' # Use H for head
-             else:
-                  grid[sy][sx] = 'o' # Use o for body
-
-        # Print grid (adjust y-axis inversion if needed based on your coordinate system)
-        for y in range(self.grid_size - 1, -1, -1): # Print from top row (y=max) down
-             row_str = ""
-             for x in range(self.grid_size):
-                  row_str += grid[y][x]
-             print(row_str)
-        print(f"Score: {self.score}, Dead: {self.dead}")
-
-
-if __name__ == "__main__":
-    game = SnakeGame() # Use fewer barriers
-    print("Initial Board:")
-    game.printBoard()
-
-    # --- Example Usage ---
-    import time
-    done = False
-    state = game.reset()
-    total_reward = 0
-    steps = 0
-    while not done and steps < 100: # Limit steps for demo
-        game.printBoard()
-        # Choose a random valid action (replace with NN policy later)
-        valid_actions = []
-        current_head = game.snake[0]
-        for action_idx in range(4):
-            direction = Direction.idx2dir(action_idx)
-            dx, dy = direction.value[1]
-            next_head = (current_head[0] + dx, current_head[1] + dy)
-            # Basic check to avoid immediate suicide (can be more sophisticated)
-            if (0 <= next_head[0] < game.grid_size and
-                0 <= next_head[1] < game.grid_size and
-                next_head not in game.barriers and
-                next_head not in game.snake[1:]):
-                valid_actions.append(action_idx)
-
-        if not valid_actions: # No safe moves, just pick one randomly
-             action_index = rd.choice([0, 1, 2, 3])
-             print(f"Step {steps+1}: No obvious safe moves, taking random action {Direction.idx2dir(action_index).name}")
+        if new_head in self.foods:
+            self.foods.remove(new_head)
+            self.board[new_head[0], new_head[1]] = EMPTY_TENSOR
+            for frame in self.enemies:
+                frame.state[new_head[0], new_head[1]] = EMPTY_TENSOR
+            reward += REWARD_FOOD
         else:
-             action_index = rd.choice(valid_actions)
-             print(f"Step {steps+1}: Taking action {Direction.idx2dir(action_index).name}")
+            reward += REWARD_STEP
 
+        self.snake.insert(0, new_head)
+        self.board[new_head[0], new_head[1]] = HEAD_TENSOR
+        if len(self.snake) > 1: # Ensure there was an old head
+            old_head = self.snake[1] # The segment that was previously the head
+            self.board[old_head[0], old_head[1]] = BODY_TENSOR
+        
+        tail = self.snake.pop()
+        if self.board[tail[0], tail[1]][2] == 1:
+            self.board[tail[0], tail[1]] = EMPTY_TENSOR
+            
+        for i, frame in enumerate(self.enemies):
+            if frame.alive:
+                frame.state[new_head[0], new_head[1]] = ENEMY_HEAD_TENSOR
+                if len(self.snake) > 1:
+                    frame.state[old_head[0], old_head[1]] = ENEMY_BODY_TENSOR
+                if self.board[tail[0], tail[1]][2] == 1:
+                    frame.state[tail[0], tail[1]] = EMPTY_TENSOR
+            
+                enemy_head = frame.snake[0]
+                edx, edy = enemy_directions[i].value[1]
+                enemy_new_head = (enemy_head[0] + edx, enemy_head[1] + edy)
+                
+                if enemy_new_head in self.foods:
+                    self.foods.remove(enemy_new_head)
+                    for f in self.enemies:
+                        f.state[enemy_new_head[0], enemy_new_head[1]] = EMPTY_TENSOR
+                
+                frame.snake.insert(0, enemy_new_head)
+                frame.state[enemy_new_head[0], enemy_new_head[1]] = HEAD_TENSOR
+                self.board[enemy_new_head[0], enemy_new_head[1]] = ENEMY_HEAD_TENSOR
+                for f in self.enemies:
+                    if f is not frame:
+                        f.state[enemy_new_head[0], enemy_new_head[1]] = ENEMY_HEAD_TENSOR
+                if len(frame.snake) > 1:
+                    old_enemy_head = frame.snake[1]
+                    frame.state[old_enemy_head[0], old_enemy_head[1]] = BODY_TENSOR
+                    self.board[old_enemy_head[0], old_enemy_head[1]] = ENEMY_BODY_TENSOR
+                    for f in self.enemies:
+                        if f is not frame:
+                            f.state[old_enemy_head[0], old_enemy_head[1]] = ENEMY_BODY_TENSOR
+                tail = frame.snake.pop()
+                if frame.state[tail[0], tail[1]][2] == 1:
+                    frame.state[tail[0], tail[1]] = EMPTY_TENSOR
+                    self.board[tail[0], tail[1]] = EMPTY_TENSOR
+                    for f in self.enemies:
+                        if f is not frame:
+                            f.state[tail[0], tail[1]] = EMPTY_TENSOR
+        
+        self.total_steps += 1
+                            
+        done = self.dead or self.total_steps >= config.MAX_STEP_PER_GAME
 
-        next_state, reward, done = game.step(action_index)
-        total_reward += reward
-        steps += 1
-        print(f"Reward: {reward:.2f}, Done: {done}, Total Reward: {total_reward:.2f}")
-        time.sleep(0.5) # Pause for visualization
+        while len(self.foods) < self.num_foods:
+            x = rd.randint(0, self.grid_size - 1)
+            y = rd.randint(0, self.grid_size - 1)
+            if (x, y) in self.snake or (x, y) in self.foods:
+                continue
+            if any((x, y) in frame.snake and frame.alive for frame in self.enemies):
+                continue
+            self.foods.append((x, y))
+            self.board[x, y] = FOOD_TENSOR
+            for frame in self.enemies:
+                frame.state[x, y] = FOOD_TENSOR
+            
+        self.drawBoards() # Update the board with the new positions of the snakes and food
 
-    print("\n--- Game Over ---")
-    game.printBoard()
-    print(f"Final Score: {game.score}")
-    print(f"Total Reward: {total_reward:.2f}")
-    print(f"Steps: {steps}")
+        return self.board.clone(), reward, done
+    
+    def drawBoards(self):
+        # redraw all the boards
+        self.board = torch.zeros(self.grid_size, self.grid_size, config.STATE_FEATURES, dtype=torch.float32)
+        for frame in self.enemies:
+            frame.state = torch.zeros(self.grid_size, self.grid_size, config.STATE_FEATURES, dtype=torch.float32)
+        self.board[self.snake[0][0], self.snake[0][1]] = HEAD_TENSOR
+        for frame in self.enemies:
+            if frame.alive:
+                frame.state[self.snake[0][0], self.snake[0][1]] = ENEMY_HEAD_TENSOR
+        for i in range(1, len(self.snake)):
+            self.board[self.snake[i][0], self.snake[i][1]] = BODY_TENSOR
+            for frame in self.enemies:
+                if frame.alive:
+                    frame.state[self.snake[i][0], self.snake[i][1]] = ENEMY_BODY_TENSOR
+        for food in self.foods:
+            self.board[food[0], food[1]] = FOOD_TENSOR
+        for x in range(self.grid_size):
+            for y in range(self.grid_size):
+                if torch.equal(self.board[x, y], UNDEFINED_TENSOR):
+                    self.board[x, y] = EMPTY_TENSOR
+        
+        for frame in self.enemies:
+            if frame.alive:
+                frame.state[frame.snake[0][0], frame.snake[0][1]] = HEAD_TENSOR
+                self.board[frame.snake[0][0], frame.snake[0][1]] = ENEMY_HEAD_TENSOR
+                for i in range(1, len(frame.snake)):
+                    frame.state[frame.snake[i][0], frame.snake[i][1]] = BODY_TENSOR
+                    self.board[frame.snake[i][0], frame.snake[i][1]] = ENEMY_BODY_TENSOR
+                for food in self.foods:
+                    frame.state[food[0], food[1]] = FOOD_TENSOR
+                for x in range(self.grid_size):
+                    for y in range(self.grid_size):
+                        if torch.equal(frame.state[x, y], UNDEFINED_TENSOR):
+                            frame.state[x, y] = EMPTY_TENSOR
+    
+    def print(self):
+        grid = [['.' for _ in range(self.grid_size * (self.enemy_snake_count + 2))] for _ in range(self.grid_size)]
+        for i in range(self.grid_size):
+            for k in range(1, self.enemy_snake_count + 1):
+                grid[i][self.grid_size * k + k - 1] = '|'
+        
+        for x in range(self.grid_size):
+            for y in range(self.grid_size):
+                cell = self.board[x, y]
+                if torch.equal(cell, FOOD_TENSOR):
+                    grid[self.grid_size - y - 1][x] = '*'
+                elif torch.equal(cell, HEAD_TENSOR):
+                    grid[self.grid_size - y - 1][x] = 'H'
+                elif torch.equal(cell, BODY_TENSOR):
+                    grid[self.grid_size - y - 1][x] = 'o'
+                elif torch.equal(cell, ENEMY_HEAD_TENSOR):
+                    grid[self.grid_size - y - 1][x] = 'E'
+                elif torch.equal(cell, ENEMY_BODY_TENSOR):
+                    grid[self.grid_size - y - 1][x] = 'e'
+        
+        for k in range(1, self.enemy_snake_count + 1):
+            for x in range(self.grid_size):
+                for y in range(self.grid_size):
+                    cell = self.enemies[k - 1].state[x][y]
+                    if torch.equal(cell, FOOD_TENSOR):
+                        grid[self.grid_size - y - 1][x + self.grid_size * k + k] = '*'
+                    elif torch.equal(cell, HEAD_TENSOR):
+                        grid[self.grid_size - y - 1][x + self.grid_size * k + k] = 'H'
+                    elif torch.equal(cell, BODY_TENSOR):
+                        grid[self.grid_size - y - 1][x + self.grid_size * k + k] = 'o'
+                    elif torch.equal(cell, ENEMY_HEAD_TENSOR):
+                        grid[self.grid_size - y - 1][x + self.grid_size * k + k] = 'E'
+                    elif torch.equal(cell, ENEMY_BODY_TENSOR):
+                        grid[self.grid_size - y - 1][x + self.grid_size * k + k] = 'e'
+                        
+        for i in range(self.grid_size):
+            print(''.join(grid[i]))
+        print(f"Total Steps: {self.total_steps}")

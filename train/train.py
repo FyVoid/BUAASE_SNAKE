@@ -9,68 +9,107 @@ from game import SnakeGame
 from agent import DQNAgent
 from utils import save_simple_params
 
+def eval(env: SnakeGame, agent: DQNAgent, episode):
+    print("Starting evaluation...")
+    
+    score = 0
+    rounds = 0
+    steps = 0
+    
+    for i in range(config.NUM_EVALS):
+        rounds += 1
+        state = env.genBoard() # Initial state tensor (H, W, C)
+        
+        step = 0
+        action = agent.select_action(state, env, True)
+        enemy_actions = [agent.select_action(frame.state, env, True) for frame in env.enemies]
+        next_state, reward, done = env.step(action, enemy_actions)
+        score += reward == config.REWARD_FOOD
+        state = next_state.clone()
+        step += 1
+        if i + 1 == config.NUM_EVALS:
+            env.print()
+            input()
+        
+        while not done and step < config.MAX_STEPS_PER_EPISODE:
+            action = agent.select_action(next_state, env, True)
+            enemy_actions = [agent.select_action(frame.state, env, True) for frame in env.enemies]
+            next_state, reward, done = env.step(action, enemy_actions)
+            score += reward == config.REWARD_FOOD
+            state = next_state.clone()
+            step += 1
+            if i + 1 == config.NUM_EVALS:
+                env.print()
+                input()
+            
+        steps += step
+        
+    print(f"Evaluation finished. Episode {episode} Score: {score / rounds:.2f} Steps: {steps / rounds:.2f}")
+
+
 def train():
     print("Starting training...")
     print(f"Configuration: {config.DEVICE}, LR={config.LR}, BATCH={config.BATCH_SIZE}, GAMMA={config.GAMMA}")
 
     env = SnakeGame(grid_size=config.GRID_SIZE)
-    agent = DQNAgent(state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE, seed=0)
+    agent = DQNAgent(state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE)
 
-    scores = []                     # List containing scores from each episode
-    scores_window = deque(maxlen=100) # Last 100 scores for moving average
     episode_lengths = []
     episode_lengths_window = deque(maxlen=100)
     epsilons = []
+    losses = []                     # List to store losses for each episode
+    losses_window = deque(maxlen=100) # Last 100 losses for moving average
 
     start_time = time.time()
 
     for i_episode in range(1, config.NUM_EPISODES + 1):
-        state = env.reset() # Initial state tensor (H, W, C)
+        state = env.genBoard() # Initial state tensor (H, W, C)
         score = 0
         ep_len = 0
+        episode_loss = 0.0
 
         for t in range(config.MAX_STEPS_PER_EPISODE):
-            action = agent.select_action(state)
-            next_state, reward, done = env.step(action)
+            action = agent.select_action(state, env)
+            enemy_actions = [agent.select_action(frame.state, env, True) for frame in env.enemies]
+            next_state, reward, done = env.step(action, enemy_actions)
 
-            # Agent learns from the experience
-            agent.step(state, action, reward, next_state, done)
+            # Agent learns from the experience and returns loss
+            loss = agent.step(state, action, reward, next_state, done)
+            if loss is not None:
+                episode_loss += loss
 
-            state = next_state
-            score += reward # Using raw reward here, could also use game.score
+            state = next_state.clone()
+            if reward == 10:
+                score += 1 # Using raw reward here, could also use game.score
             ep_len += 1
 
             if done:
                 break
 
-        scores_window.append(score)       # Save most recent score
-        scores.append(score)              # Save most recent score
         episode_lengths_window.append(ep_len)
         episode_lengths.append(ep_len)
         epsilons.append(agent.epsilon)    # Record epsilon evolution
+        losses_window.append(episode_loss)
+        losses.append(episode_loss)
 
         # Print progress
         if i_episode % config.LOG_INTERVAL == 0:
             elapsed_time = time.time() - start_time
-            avg_score = np.mean(scores_window)
             avg_len = np.mean(episode_lengths_window)
-            print(f'Episode {i_episode}\tAvg Score: {avg_score:.2f}\tAvg Len: {avg_len:.1f}\tEpsilon: {agent.epsilon:.4f}\tTime: {elapsed_time:.1f}s')
+            avg_loss = np.mean(losses_window)
+            print(f'Episode {i_episode}\tAvg Len: {avg_len:.1f}\tAvg Loss: {avg_loss:.4f}\tEpsilon: {agent.epsilon:.4f}\tTime: {elapsed_time:.1f}s')
             start_time = time.time() # Reset timer for next interval
+            
+            if i_episode >= config.EVAL_START_EPISODE:
+                eval(env, agent, i_episode) # Evaluate the agent every LOG_INTERVAL episodes
 
         # Save model periodically
-        if i_episode % config.SAVE_INTERVAL == 0:
-            agent.save_model(config.MODEL_SAVE_PATH)
-            # Save simplified parameters for non-Python use
-            save_simple_params(agent.policy_net, config.PARAMS_SAVE_PATH)
+        # if i_episode % config.SAVE_INTERVAL == 0:
+        #     agent.save_model(config.MODEL_SAVE_PATH)
+        #     # Save simplified parameters for non-Python use
+        #     save_simple_params(agent.policy_net, config.PARAMS_SAVE_PATH)
 
     print("Training finished.")
-    # Save final model
-    agent.save_model(config.MODEL_SAVE_PATH)
-    save_simple_params(agent.policy_net, config.PARAMS_SAVE_PATH)
-
-    # Plotting (optional)
-    plot_performance(scores, episode_lengths, epsilons)
-
 
 def plot_performance(scores, lengths, epsilons):
     """Plots training scores, episode lengths, and epsilon decay."""
