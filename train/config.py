@@ -13,7 +13,7 @@ BUFFER_SIZE = 10000      # Replay memory size
 BATCH_SIZE = 128         # Number of experiences to sample for learning
 GAMMA = 0.9             # Discount factor for future rewards
 EPS_START = 1.0          # Starting value of epsilon (exploration rate)
-EPS_END = 0.10           # Minimum value of epsilon
+EPS_END = 0.25           # Minimum value of epsilon
 EPS_DECAY = 5000         # Controls the rate of exponential decay of epsilon
 LR = 5e-4                # Learning rate for the optimizer
 TARGET_UPDATE_FREQ = 2000  # How often to update the target network (in steps or episodes) - using steps here
@@ -28,7 +28,7 @@ MAX_STEP_PER_GAME = 50 if GAME_MODE == "1v1" else 100
 
 REWARD_FOOD = 10
 REWARD_DEATH = -20
-REWARD_CLOSER = 5
+REWARD_CLOSER = 0
 REWARD_STEP = 0
 REWARD_KILL = 20
 

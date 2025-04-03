@@ -40,6 +40,20 @@ class Direction(Enum):
                 return direction
         raise ValueError(f"Invalid action index: {index}")
     
+    @staticmethod
+    def action2str(action: int) -> str:
+        """Convert action index to string representation."""
+        if action == 0:
+            return "U"
+        elif action == 1:
+            return "L"
+        elif action == 2:
+            return "D"
+        elif action == 3:
+            return "R"
+        else:
+            return "UNDEFINED"
+    
 class EnemyFrame:
     def __init__(self, snake: List[Tuple[int, int]], alive: bool, state: torch.Tensor):
         self.snake = snake
@@ -173,8 +187,6 @@ class SnakeGame:
             # If already dead, return current state, 0 reward, and done=True
             return self.board.clone(), 0.0, True
         
-        # TODO: rewrite this function
-        
         reward = 0
 
         action = Direction.idx2dir(action_index)
@@ -188,7 +200,7 @@ class SnakeGame:
         if not (0 <= new_head[0] < self.grid_size and 0 <= new_head[1] < self.grid_size): # Boundary
             self.dead = True
             return self.board.clone(), REWARD_DEATH, True
-        if new_head in self.snake[1:3]: # Self collision (ignore head itself)
+        if new_head in self.snake[0:3]: # Self collision (ignore head itself)
             self.dead = True
             return self.board.clone(), REWARD_DEATH * 2, True
         for i, frame in enumerate(self.enemies):
@@ -202,7 +214,7 @@ class SnakeGame:
                 
                 if not (0 <= enemy_new_head[0] < self.grid_size and 0 <= enemy_new_head[1] < self.grid_size):
                     frame.alive = False
-                if enemy_new_head in frame.snake[1:3]:
+                if enemy_new_head in frame.snake[0:3]:
                     frame.alive = False
                 if enemy_new_head == new_head or enemy_new_head in self.snake[0:3]:
                     frame.alive = False
@@ -212,7 +224,7 @@ class SnakeGame:
                         odx, ody = enemy_directions[j].value[1]
                         other_enemy_head = other_frame.snake[0]
                         other_enemy_new_head = (other_enemy_head[0] + odx, other_enemy_head[1] + ody)
-                        if enemy_new_head == other_enemy_new_head or enemy_new_head in other_frame.snake[1:3]:
+                        if enemy_new_head == other_enemy_new_head or enemy_new_head in other_frame.snake[0:3]:
                             frame.alive = False
                             break
 
@@ -306,7 +318,7 @@ class SnakeGame:
                         for i in range(1, len(frame.snake)):
                             f.state[frame.snake[i][0], frame.snake[i][1]] = ENEMY_BODY_TENSOR
     
-    def print(self):
+    def print(self, dir):
         grid = [['.' for _ in range(self.grid_size * (self.enemy_snake_count + 2))] for _ in range(self.grid_size)]
         for i in range(self.grid_size):
             for k in range(1, self.enemy_snake_count + 1):
@@ -343,4 +355,4 @@ class SnakeGame:
                         
         for i in range(self.grid_size):
             print(''.join(grid[i]))
-        print(f"Total Steps: {self.total_steps}")
+        print(f"Total Steps: {self.total_steps}, action: {Direction.action2str(dir)}, dead: {self.dead}")

@@ -29,7 +29,7 @@ def eval(env: SnakeGame, agent: DQNAgent, episode: int, interact: bool):
         state = next_state.clone()
         step += 1
         if i + 1 == config.NUM_EVALS and interact:
-            env.print()
+            env.print(action)
             input()
         
         while not done and step < config.MAX_STEPS_PER_EPISODE:
@@ -40,7 +40,7 @@ def eval(env: SnakeGame, agent: DQNAgent, episode: int, interact: bool):
             state = next_state.clone()
             step += 1
             if i + 1 == config.NUM_EVALS and interact:
-                env.print()
+                env.print(action)
                 input()
             
         steps += step
