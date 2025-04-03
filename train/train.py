@@ -14,6 +14,8 @@ def eval(env: SnakeGame, agent: DQNAgent, episode: int, interact: bool):
     print("Starting evaluation...")
     
     score = 0
+    kills = 0
+    death = 0
     rounds = 0
     steps = 0
     
@@ -25,27 +27,27 @@ def eval(env: SnakeGame, agent: DQNAgent, episode: int, interact: bool):
         action = agent.select_action(state, env, True)
         enemy_actions = [agent.select_dumb_action(frame.state, env) for frame in env.enemies]
         next_state, reward, done = env.step(action, enemy_actions)
-        score += reward == config.REWARD_FOOD
         state = next_state.clone()
         step += 1
         if i + 1 == config.NUM_EVALS and interact:
             env.print(action)
-            input()
         
         while not done and step < config.MAX_STEPS_PER_EPISODE:
             action = agent.select_action(next_state, env, True)
             enemy_actions = [agent.select_dumb_action(frame.state, env) for frame in env.enemies]
             next_state, reward, done = env.step(action, enemy_actions)
-            score += reward == config.REWARD_FOOD
             state = next_state.clone()
             step += 1
             if i + 1 == config.NUM_EVALS and interact:
                 env.print(action)
-                input()
+                
+        score += env.score
+        kills += env.kill
+        death += env.dead
             
         steps += step
         
-    print(f"Evaluation finished. Episode {episode} Score: {score / rounds:.2f} Steps: {steps / rounds:.2f}")
+    print(f"Evaluation finished. Episode {episode} Score: {score / rounds:.2f} Kills: {kills / rounds:.2f} Deaths: {death / rounds:.2f} Steps: {steps / rounds:.2f}")
 
 
 def train():

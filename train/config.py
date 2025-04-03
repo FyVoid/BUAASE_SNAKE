@@ -26,11 +26,26 @@ NUM_FOODS = 5 if GAME_MODE == "1v1" else 10
 ENEMY_SNAKE_COUNT = 1 if GAME_MODE == "1v1" else 3
 MAX_STEP_PER_GAME = 50 if GAME_MODE == "1v1" else 100
 
-REWARD_FOOD = 10
-REWARD_DEATH = -20
-REWARD_CLOSER = 0
-REWARD_STEP = 0
-REWARD_KILL = 20
+REWARD = {
+    "DEATH_EARLY": -20.0,
+    "SELF_KILL": -25.0,
+    "DEATH_LATE": -10.0,
+    "LIVING": 1.0,
+    
+    "FOOD": 10.0,
+    "FOOD_ON_ENEMY_CORPSE": 20.0,
+    "CLOSE_TO_FOOD": 3.0,
+    
+    "KILL": 25.0
+}
+
+max_reward = max(REWARD.values())
+min_reward = min(REWARD.values())
+# Normalize rewards to be between 0 and 1
+for key in REWARD.keys():
+    REWARD[key] = (REWARD[key] - min_reward) / (max_reward - min_reward)
+
+SEARCH_DISTANCE = 1 if GAME_MODE == "1v1" else 2
 
 INTERACT = True
 NUM_EPISODES = 20000

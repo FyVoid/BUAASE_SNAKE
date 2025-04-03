@@ -18,14 +18,6 @@ ENEMY_HEAD_TENSOR = torch.tensor([0, 0, 0, 1, 0, 0], dtype=torch.float32)
 ENEMY_BODY_TENSOR = torch.tensor([0, 0, 0, 0, 1, 0], dtype=torch.float32)
 FOOD_TENSOR = torch.tensor([0, 0, 0, 0, 0, 1], dtype=torch.float32)
 
-
-# Rewards
-REWARD_FOOD = config.REWARD_FOOD
-REWARD_DEATH = config.REWARD_DEATH
-REWARD_CLOSER = config.REWARD_CLOSER
-REWARD_STEP = config.REWARD_STEP
-REWARD_KILL = config.REWARD_KILL
-
 class Direction(Enum):
     # Value: (Action Index, (dx, dy)) - ensure indices match NN output (0, 1, 2, 3)
     U = (0, (0, 1))  # Assuming +y is Up
@@ -93,28 +85,6 @@ class SnakeGame:
 
         self.genBoard() # Generate the initial board configuration
 
-    def _is_reachable(self, start: Tuple[int, int], end: Tuple[int, int], obstacles: Set[Tuple[int, int]]) -> bool:
-        """Checks reachability using BFS."""
-        if start == end:
-            return True
-        q = Queue()
-        q.put(start)
-        visited = {start} | obstacles # Treat obstacles as visited initially
-
-        while not q.empty():
-            current = q.get()
-            if current == end:
-                return True
-
-            for dx, dy in self.possible_moves:
-                next_pos = (current[0] + dx, current[1] + dy)
-                if (0 <= next_pos[0] < self.grid_size and
-                        0 <= next_pos[1] < self.grid_size and
-                        next_pos not in visited):
-                    visited.add(next_pos)
-                    q.put(next_pos)
-        return False
-
     def genBoard(self):
         """Generates the initial board state including snake, barriers, and food."""
         while True: # Keep trying until a valid board with reachable food is generated
@@ -161,6 +131,7 @@ class SnakeGame:
                         
             self.dead = False
             self.score = 0
+            self.kill = 0
             
             assert(len(self.snake) == self.snake_length)
             for frame in self.enemies:
@@ -196,13 +167,16 @@ class SnakeGame:
         new_head = (head[0] + dx, head[1] + dy)
         
         enemy_alive_flags = [frame.alive for frame in self.enemies]
+        enemy_alive_count = sum([1 for frame in self.enemies if frame.alive])
+        early_death = ((self.enemy_snake_count + 1) // 2) <= enemy_alive_count
+        REWARD_DEATH = config.REWARD['DEATH_EARLY'] if early_death else config.REWARD['DEATH_LATE']
 
         if not (0 <= new_head[0] < self.grid_size and 0 <= new_head[1] < self.grid_size): # Boundary
             self.dead = True
-            return self.board.clone(), REWARD_DEATH, True
+            return self.board.clone(), REWARD_DEATH , True
         if new_head in self.snake[0:3]: # Self collision (ignore head itself)
             self.dead = True
-            return self.board.clone(), REWARD_DEATH * 2, True
+            return self.board.clone(), config.REWARD['SELF_KILL'], True
         for i, frame in enumerate(self.enemies):
             if enemy_alive_flags[i]:
                 edx, edy = enemy_directions[i].value[1]
@@ -218,7 +192,8 @@ class SnakeGame:
                     frame.alive = False
                 if enemy_new_head == new_head or enemy_new_head in self.snake[0:3]:
                     frame.alive = False
-                    reward += REWARD_KILL
+                    reward += config.REWARD['KILL']
+                    self.kill += 1
                 for j, other_frame in enumerate(self.enemies):
                     if other_frame is not frame and enemy_alive_flags[j]:
                         odx, ody = enemy_directions[j].value[1]
@@ -228,20 +203,24 @@ class SnakeGame:
                             frame.alive = False
                             break
 
-        distances_before = [abs(head[0] - fx) + abs(head[1] - fy) for fx, fy in self.foods]
-        distances_after = [abs(new_head[0] - fx) + abs(new_head[1] - fy) for fx, fy in self.foods]
-
-        if distances_before and distances_after:
-            sum_distance_before = min(distances_before)
-            sum_distance_after = min(distances_after)
-            if sum_distance_after < sum_distance_before:
-                reward += sum_distance_after / sum_distance_before * REWARD_CLOSER
+        area_before = [(x, y) for x in range(head[1] - config.SEARCH_DISTANCE, head[1] + config.SEARCH_DISTANCE + 1) for y in range(head[0] - config.SEARCH_DISTANCE, head[0] + config.SEARCH_DISTANCE + 1) if x >= 0 and x < self.grid_size and y >= 0 and y < self.grid_size]
+        area_after = [(x, y) for x in range(new_head[1] - config.SEARCH_DISTANCE, new_head[1] + config.SEARCH_DISTANCE + 1) for y in range(new_head[0] - config.SEARCH_DISTANCE, new_head[0] + config.SEARCH_DISTANCE + 1) if x >= 0 and x < self.grid_size and y >= 0 and y < self.grid_size]
+        food_reachable_count_before = sum([1 for fx, fy in self.foods if (fx, fy) in area_before])
+        food_reachable_count_after = sum([1 for fx, fy in self.foods if (fx, fy) in area_after])
+        
+        if food_reachable_count_before < food_reachable_count_after:
+            reward += config.REWARD['CLOSE_TO_FOOD']
 
         if new_head in self.foods:
             self.foods.remove(new_head)
-            reward += REWARD_FOOD
-        else:
-            reward += REWARD_STEP
+            if enemy_alive_count == 0:
+                reward += config.REWARD['FOOD_ON_ENEMY_CORPSE']
+            else:
+                reward += config.REWARD['FOOD']
+            self.score += 1
+            
+        if not self.dead:
+            reward += config.REWARD['LIVING']
 
         self.snake.insert(0, new_head)
         if len(self.snake) > 1: # Ensure there was an old head
@@ -356,3 +335,6 @@ class SnakeGame:
         for i in range(self.grid_size):
             print(''.join(grid[i]))
         print(f"Total Steps: {self.total_steps}, action: {Direction.action2str(dir)}, dead: {self.dead}")
+        print(f"Score: {self.score}")
+        print(f"Kill: {self.kill}")
+        
