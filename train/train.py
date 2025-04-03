@@ -31,6 +31,7 @@ def eval(env: SnakeGame, agent: DQNAgent, episode: int, interact: bool):
         step += 1
         if i + 1 == config.NUM_EVALS and interact:
             env.print(action)
+            input()
         
         while not done and step < config.MAX_STEPS_PER_EPISODE:
             action = agent.select_action(next_state, env, True)
@@ -40,6 +41,7 @@ def eval(env: SnakeGame, agent: DQNAgent, episode: int, interact: bool):
             step += 1
             if i + 1 == config.NUM_EVALS and interact:
                 env.print(action)
+                input()
                 
         score += env.score
         kills += env.kill
@@ -51,8 +53,10 @@ def eval(env: SnakeGame, agent: DQNAgent, episode: int, interact: bool):
 
 
 def train():
-    print("Starting training...")
-    print(f"Configuration: {config.DEVICE}, LR={config.LR}, BATCH={config.BATCH_SIZE}, GAMMA={config.GAMMA}, SEED={config.SEED}")
+    print("Configuration settings:")
+    for key, value in vars(config).items():
+        if not key.startswith("__") and not callable(value):
+            print(f"{key}: {value}")
     seed = config.SEED
     rd.seed(seed)
     np.random.seed(seed)
@@ -110,11 +114,12 @@ def train():
             if i_episode >= config.EVAL_START_EPISODE and i_episode % config.EVAL_INTERVAL == 0:
                 eval(env, agent, i_episode, config.INTERACT) # Evaluate the agent every LOG_INTERVAL episodes
 
-        # Save model periodically
-        # if i_episode % config.SAVE_INTERVAL == 0:
-        #     agent.save_model(config.MODEL_SAVE_PATH)
-        #     # Save simplified parameters for non-Python use
-        #     save_simple_params(agent.policy_net, config.PARAMS_SAVE_PATH)
+        if i_episode % config.SAVE_INTERVAL == 0:
+            
+            
+            
+            
+            agent.save_model(config.MODEL_SAVE_PATH + f"_{i_episode}.pth")
 
     print("Training finished.")
 

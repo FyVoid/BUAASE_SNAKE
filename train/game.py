@@ -10,13 +10,15 @@ NUM_FOODS = config.NUM_FOODS
 SNAKE_LENGTH = 4
 
 # One-hot vector 
-UNDEFINED_TENSOR = torch.tensor([0, 0, 0, 0, 0, 0], dtype=torch.float32)
-EMPTY_TENSOR = torch.tensor([1, 0, 0, 0, 0, 0], dtype=torch.float32)
-HEAD_TENSOR = torch.tensor([0, 1, 0, 0, 0, 0], dtype=torch.float32)
-BODY_TENSOR = torch.tensor([0, 0, 1, 0, 0, 0], dtype=torch.float32)
-ENEMY_HEAD_TENSOR = torch.tensor([0, 0, 0, 1, 0, 0], dtype=torch.float32)
-ENEMY_BODY_TENSOR = torch.tensor([0, 0, 0, 0, 1, 0], dtype=torch.float32)
-FOOD_TENSOR = torch.tensor([0, 0, 0, 0, 0, 1], dtype=torch.float32)
+UNDEFINED_TENSOR = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32)
+EMPTY_TENSOR = torch.tensor([1, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float32)
+HEAD_TENSOR = torch.tensor([0, 1, 0, 0, 0, 0, 0, 0], dtype=torch.float32)
+BODY_TENSOR = torch.tensor([0, 0, 1, 0, 0, 0, 0, 0], dtype=torch.float32)
+TAIL_TENSOR = torch.tensor([0, 0, 0, 1, 0, 0, 0, 0], dtype=torch.float32)
+ENEMY_HEAD_TENSOR = torch.tensor([0, 0, 0, 0, 1, 0, 0, 0], dtype=torch.float32)
+ENEMY_BODY_TENSOR = torch.tensor([0, 0, 0, 0, 0, 1, 0, 0], dtype=torch.float32)
+ENEMY_TAIL_TENSOR = torch.tensor([0, 0, 0, 0, 0, 0, 1, 0], dtype=torch.float32)
+FOOD_TENSOR = torch.tensor([0, 0, 0, 0, 0, 0, 0, 1], dtype=torch.float32)
 
 class Direction(Enum):
     # Value: (Action Index, (dx, dy)) - ensure indices match NN output (0, 1, 2, 3)
@@ -219,7 +221,7 @@ class SnakeGame:
                 reward += config.REWARD['FOOD']
             self.score += 1
             
-        if not self.dead:
+        if not self.dead and reward == 0:
             reward += config.REWARD['LIVING']
 
         self.snake.insert(0, new_head)
@@ -266,11 +268,15 @@ class SnakeGame:
         for frame in self.enemies:
             if frame.alive:
                 frame.state[self.snake[0][0], self.snake[0][1]] = ENEMY_HEAD_TENSOR
-        for i in range(1, len(self.snake)):
+        for i in range(1, len(self.snake) - 1):
             self.board[self.snake[i][0], self.snake[i][1]] = BODY_TENSOR
             for frame in self.enemies:
                 if frame.alive:
                     frame.state[self.snake[i][0], self.snake[i][1]] = ENEMY_BODY_TENSOR
+        self.board[self.snake[-1][0], self.snake[-1][1]] = TAIL_TENSOR
+        for frame in self.enemies:
+            if frame.alive:
+                frame.state[self.snake[-1][0], self.snake[-1][1]] = ENEMY_TAIL_TENSOR
         for food in self.foods:
             self.board[food[0], food[1]] = FOOD_TENSOR
         for x in range(self.grid_size):
@@ -282,9 +288,11 @@ class SnakeGame:
             if frame.alive:
                 frame.state[frame.snake[0][0], frame.snake[0][1]] = HEAD_TENSOR
                 self.board[frame.snake[0][0], frame.snake[0][1]] = ENEMY_HEAD_TENSOR
-                for i in range(1, len(frame.snake)):
+                for i in range(1, len(frame.snake) - 1):
                     frame.state[frame.snake[i][0], frame.snake[i][1]] = BODY_TENSOR
                     self.board[frame.snake[i][0], frame.snake[i][1]] = ENEMY_BODY_TENSOR
+                frame.state[frame.snake[-1][0], frame.snake[-1][1]] = TAIL_TENSOR
+                self.board[frame.snake[-1][0], frame.snake[-1][1]] = ENEMY_TAIL_TENSOR
                 for food in self.foods:
                     frame.state[food[0], food[1]] = FOOD_TENSOR
                 for x in range(self.grid_size):
@@ -294,8 +302,9 @@ class SnakeGame:
                 for f in self.enemies:
                     if f is not frame and f.alive:
                         f.state[frame.snake[0][0], frame.snake[0][1]] = ENEMY_HEAD_TENSOR
-                        for i in range(1, len(frame.snake)):
+                        for i in range(1, len(frame.snake) - 1):
                             f.state[frame.snake[i][0], frame.snake[i][1]] = ENEMY_BODY_TENSOR
+                        f.state[frame.snake[-1][0], frame.snake[-1][1]] = ENEMY_TAIL_TENSOR
     
     def print(self, dir):
         grid = [['.' for _ in range(self.grid_size * (self.enemy_snake_count + 2))] for _ in range(self.grid_size)]
@@ -311,10 +320,14 @@ class SnakeGame:
                 elif torch.equal(cell, HEAD_TENSOR):
                     grid[self.grid_size - y - 1][x] = 'H'
                 elif torch.equal(cell, BODY_TENSOR):
+                    grid[self.grid_size - y - 1][x] = 'n'
+                elif torch.equal(cell, TAIL_TENSOR):
                     grid[self.grid_size - y - 1][x] = 'o'
                 elif torch.equal(cell, ENEMY_HEAD_TENSOR):
                     grid[self.grid_size - y - 1][x] = 'E'
                 elif torch.equal(cell, ENEMY_BODY_TENSOR):
+                    grid[self.grid_size - y - 1][x] = 'w'
+                elif torch.equal(cell, ENEMY_TAIL_TENSOR):
                     grid[self.grid_size - y - 1][x] = 'e'
         
         for k in range(1, self.enemy_snake_count + 1):
