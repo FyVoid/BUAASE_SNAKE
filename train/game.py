@@ -6,7 +6,6 @@ from enum import Enum
 import config
 
 GRID_SIZE = config.GRID_SIZE
-NUM_BARRIERS = config.NUM_BARRIERS
 NUM_FOODS = config.NUM_FOODS
 SNAKE_LENGTH = 4
 
@@ -48,9 +47,8 @@ class EnemyFrame:
         self.state = state
 
 class SnakeGame:
-    def __init__(self, grid_size=GRID_SIZE, num_barriers=NUM_BARRIERS, num_foods=NUM_FOODS, snake_length=SNAKE_LENGTH, enemy_snake_count=config.ENEMY_SNAKE_COUNT, game_mode=config.GAME_MODE):
+    def __init__(self, grid_size=GRID_SIZE, num_foods=NUM_FOODS, snake_length=SNAKE_LENGTH, enemy_snake_count=config.ENEMY_SNAKE_COUNT, game_mode=config.GAME_MODE):
         self.grid_size = grid_size
-        self.num_barriers = num_barriers
         self.num_foods = num_foods
         self.snake_length = max(1, snake_length) # Ensure at least length 1
         self.enemy_snake_count = enemy_snake_count
@@ -175,6 +173,8 @@ class SnakeGame:
             # If already dead, return current state, 0 reward, and done=True
             return self.board.clone(), 0.0, True
         
+        # TODO: rewrite this function
+        
         reward = 0
 
         action = Direction.idx2dir(action_index)
@@ -182,43 +182,40 @@ class SnakeGame:
         dx, dy = action.value[1]
         head = self.snake[0]
         new_head = (head[0] + dx, head[1] + dy)
+        
+        enemy_alive_flags = [frame.alive for frame in self.enemies]
 
         if not (0 <= new_head[0] < self.grid_size and 0 <= new_head[1] < self.grid_size): # Boundary
             self.dead = True
             return self.board.clone(), REWARD_DEATH, True
-        if new_head in self.snake[1:]: # Self collision (ignore head itself)
+        if new_head in self.snake[1:3]: # Self collision (ignore head itself)
             self.dead = True
-            return self.board.clone(), REWARD_DEATH, True
+            return self.board.clone(), REWARD_DEATH * 2, True
         for i, frame in enumerate(self.enemies):
-            if frame.alive:
+            if enemy_alive_flags[i]:
                 edx, edy = enemy_directions[i].value[1]
                 enemy_head = frame.snake[0]
                 enemy_new_head = (enemy_head[0] + edx, enemy_head[1] + edy)
-                if enemy_new_head == new_head or new_head in frame.snake[1:]: # Enemy collision (head-on or body)
+                if enemy_new_head == new_head or new_head in frame.snake[0:3]: # Enemy collision (head-on or body)
                     self.dead = True
                     return self.board.clone(), REWARD_DEATH, True
                 
                 if not (0 <= enemy_new_head[0] < self.grid_size and 0 <= enemy_new_head[1] < self.grid_size):
                     frame.alive = False
-                    continue
-                if enemy_new_head in frame.snake[1:]:
+                if enemy_new_head in frame.snake[1:3]:
+                    frame.alive = False
+                if enemy_new_head == new_head or enemy_new_head in self.snake[0:3]:
                     frame.alive = False
                     reward += REWARD_KILL
-                    continue
-                if enemy_new_head == new_head or enemy_new_head in self.snake[1:]:
-                    frame.alive = False
-                    continue
                 for j, other_frame in enumerate(self.enemies):
-                    if other_frame is not frame and other_frame.alive:
+                    if other_frame is not frame and enemy_alive_flags[j]:
                         odx, ody = enemy_directions[j].value[1]
                         other_enemy_head = other_frame.snake[0]
                         other_enemy_new_head = (other_enemy_head[0] + odx, other_enemy_head[1] + ody)
-                        if enemy_new_head == other_enemy_new_head or enemy_new_head in other_frame.snake[1:]:
+                        if enemy_new_head == other_enemy_new_head or enemy_new_head in other_frame.snake[1:3]:
                             frame.alive = False
                             break
 
-            
-        head = self.snake[0]
         distances_before = [abs(head[0] - fx) + abs(head[1] - fy) for fx, fy in self.foods]
         distances_after = [abs(new_head[0] - fx) + abs(new_head[1] - fy) for fx, fy in self.foods]
 
@@ -230,30 +227,17 @@ class SnakeGame:
 
         if new_head in self.foods:
             self.foods.remove(new_head)
-            self.board[new_head[0], new_head[1]] = EMPTY_TENSOR
-            for frame in self.enemies:
-                frame.state[new_head[0], new_head[1]] = EMPTY_TENSOR
             reward += REWARD_FOOD
         else:
             reward += REWARD_STEP
 
         self.snake.insert(0, new_head)
-        self.board[new_head[0], new_head[1]] = HEAD_TENSOR
         if len(self.snake) > 1: # Ensure there was an old head
             old_head = self.snake[1] # The segment that was previously the head
-            self.board[old_head[0], old_head[1]] = BODY_TENSOR
-        
         tail = self.snake.pop()
-        if self.board[tail[0], tail[1]][2] == 1:
-            self.board[tail[0], tail[1]] = EMPTY_TENSOR
             
         for i, frame in enumerate(self.enemies):
             if frame.alive:
-                frame.state[new_head[0], new_head[1]] = ENEMY_HEAD_TENSOR
-                if len(self.snake) > 1:
-                    frame.state[old_head[0], old_head[1]] = ENEMY_BODY_TENSOR
-                if self.board[tail[0], tail[1]][2] == 1:
-                    frame.state[tail[0], tail[1]] = EMPTY_TENSOR
             
                 enemy_head = frame.snake[0]
                 edx, edy = enemy_directions[i].value[1]
@@ -261,29 +245,9 @@ class SnakeGame:
                 
                 if enemy_new_head in self.foods:
                     self.foods.remove(enemy_new_head)
-                    for f in self.enemies:
-                        f.state[enemy_new_head[0], enemy_new_head[1]] = EMPTY_TENSOR
                 
                 frame.snake.insert(0, enemy_new_head)
-                frame.state[enemy_new_head[0], enemy_new_head[1]] = HEAD_TENSOR
-                self.board[enemy_new_head[0], enemy_new_head[1]] = ENEMY_HEAD_TENSOR
-                for f in self.enemies:
-                    if f is not frame:
-                        f.state[enemy_new_head[0], enemy_new_head[1]] = ENEMY_HEAD_TENSOR
-                if len(frame.snake) > 1:
-                    old_enemy_head = frame.snake[1]
-                    frame.state[old_enemy_head[0], old_enemy_head[1]] = BODY_TENSOR
-                    self.board[old_enemy_head[0], old_enemy_head[1]] = ENEMY_BODY_TENSOR
-                    for f in self.enemies:
-                        if f is not frame:
-                            f.state[old_enemy_head[0], old_enemy_head[1]] = ENEMY_BODY_TENSOR
                 tail = frame.snake.pop()
-                if frame.state[tail[0], tail[1]][2] == 1:
-                    frame.state[tail[0], tail[1]] = EMPTY_TENSOR
-                    self.board[tail[0], tail[1]] = EMPTY_TENSOR
-                    for f in self.enemies:
-                        if f is not frame:
-                            f.state[tail[0], tail[1]] = EMPTY_TENSOR
         
         self.total_steps += 1
                             
@@ -297,9 +261,6 @@ class SnakeGame:
             if any((x, y) in frame.snake and frame.alive for frame in self.enemies):
                 continue
             self.foods.append((x, y))
-            self.board[x, y] = FOOD_TENSOR
-            for frame in self.enemies:
-                frame.state[x, y] = FOOD_TENSOR
             
         self.drawBoards() # Update the board with the new positions of the snakes and food
 
@@ -339,6 +300,11 @@ class SnakeGame:
                     for y in range(self.grid_size):
                         if torch.equal(frame.state[x, y], UNDEFINED_TENSOR):
                             frame.state[x, y] = EMPTY_TENSOR
+                for f in self.enemies:
+                    if f is not frame and f.alive:
+                        f.state[frame.snake[0][0], frame.snake[0][1]] = ENEMY_HEAD_TENSOR
+                        for i in range(1, len(frame.snake)):
+                            f.state[frame.snake[i][0], frame.snake[i][1]] = ENEMY_BODY_TENSOR
     
     def print(self):
         grid = [['.' for _ in range(self.grid_size * (self.enemy_snake_count + 2))] for _ in range(self.grid_size)]

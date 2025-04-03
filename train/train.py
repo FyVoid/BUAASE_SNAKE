@@ -2,6 +2,7 @@ import torch
 from collections import deque
 import matplotlib.pyplot as plt
 import numpy as np
+import random as rd
 import time
 
 import config
@@ -9,7 +10,7 @@ from game import SnakeGame
 from agent import DQNAgent
 from utils import save_simple_params
 
-def eval(env: SnakeGame, agent: DQNAgent, episode):
+def eval(env: SnakeGame, agent: DQNAgent, episode: int, interact: bool):
     print("Starting evaluation...")
     
     score = 0
@@ -22,23 +23,23 @@ def eval(env: SnakeGame, agent: DQNAgent, episode):
         
         step = 0
         action = agent.select_action(state, env, True)
-        enemy_actions = [agent.select_action(frame.state, env, True) for frame in env.enemies]
+        enemy_actions = [agent.select_dumb_action(frame.state, env) for frame in env.enemies]
         next_state, reward, done = env.step(action, enemy_actions)
         score += reward == config.REWARD_FOOD
         state = next_state.clone()
         step += 1
-        if i + 1 == config.NUM_EVALS:
+        if i + 1 == config.NUM_EVALS and interact:
             env.print()
             input()
         
         while not done and step < config.MAX_STEPS_PER_EPISODE:
             action = agent.select_action(next_state, env, True)
-            enemy_actions = [agent.select_action(frame.state, env, True) for frame in env.enemies]
+            enemy_actions = [agent.select_dumb_action(frame.state, env) for frame in env.enemies]
             next_state, reward, done = env.step(action, enemy_actions)
             score += reward == config.REWARD_FOOD
             state = next_state.clone()
             step += 1
-            if i + 1 == config.NUM_EVALS:
+            if i + 1 == config.NUM_EVALS and interact:
                 env.print()
                 input()
             
@@ -49,7 +50,11 @@ def eval(env: SnakeGame, agent: DQNAgent, episode):
 
 def train():
     print("Starting training...")
-    print(f"Configuration: {config.DEVICE}, LR={config.LR}, BATCH={config.BATCH_SIZE}, GAMMA={config.GAMMA}")
+    print(f"Configuration: {config.DEVICE}, LR={config.LR}, BATCH={config.BATCH_SIZE}, GAMMA={config.GAMMA}, SEED={config.SEED}")
+    seed = config.SEED
+    rd.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
     env = SnakeGame(grid_size=config.GRID_SIZE)
     agent = DQNAgent(state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE)
@@ -100,8 +105,8 @@ def train():
             print(f'Episode {i_episode}\tAvg Len: {avg_len:.1f}\tAvg Loss: {avg_loss:.4f}\tEpsilon: {agent.epsilon:.4f}\tTime: {elapsed_time:.1f}s')
             start_time = time.time() # Reset timer for next interval
             
-            if i_episode >= config.EVAL_START_EPISODE:
-                eval(env, agent, i_episode) # Evaluate the agent every LOG_INTERVAL episodes
+            if i_episode >= config.EVAL_START_EPISODE and i_episode % config.EVAL_INTERVAL == 0:
+                eval(env, agent, i_episode, config.INTERACT) # Evaluate the agent every LOG_INTERVAL episodes
 
         # Save model periodically
         # if i_episode % config.SAVE_INTERVAL == 0:

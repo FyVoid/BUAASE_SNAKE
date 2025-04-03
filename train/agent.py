@@ -34,14 +34,9 @@ class ReplayMemory:
     
 class DQNAgent:
 
-    def __init__(self, state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE, seed=0):
+    def __init__(self, state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE):
         self.state_size = state_size
         self.action_size = action_size
-        self.seed = rd.seed(seed)
-
-        rd.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
 
         self.policy_net = DQN().to(config.DEVICE)
         self.target_net = DQN().to(config.DEVICE)
@@ -88,7 +83,7 @@ class DQNAgent:
                 action_values = self.policy_net(state)
             self.policy_net.train()
             action = np.argmax(action_values.cpu().data.numpy())
-            return action
+            return action.astype(int)
         else:
             while True:
                 action = rd.choice(np.arange(self.action_size))
@@ -98,7 +93,18 @@ class DQNAgent:
                     continue
                 return action
             
-    
+    def select_dumb_action(self, state, env) -> int:
+        if state.dim() == 3:
+            state = state.unsqueeze(0)
+
+        state = state.to(config.DEVICE)
+
+        self.policy_net.eval()
+        with torch.no_grad():
+            action_values = self.policy_net(state)
+        self.policy_net.train()
+        action = np.argmax(action_values.cpu().data.numpy())
+        return action.astype(int)
         
     def _learn(self, transitions, gamma):
         states, actions, rewards, next_states, dones = transitions
