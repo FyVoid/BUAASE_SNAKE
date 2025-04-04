@@ -1,47 +1,9 @@
+#include <queue>
 #include <stdint.h>
+#include <unordered_map>
+#include <vector>
+#include <iostream>
 #include "lib.hpp"
-
-Tensor2D operator*(const Tensor2D& lhs, const Tensor2D& rhs) {
-    Tensor2D result(lhs.dim_x, rhs.dim_y);
-    for (int32_t i = 0; i < lhs.dim_x; i++) {
-        for (int32_t j = 0; j < rhs.dim_y; j++) {
-            for (int32_t k = 0; k < lhs.dim_y; k++) {
-                result.set(i, j, lhs.at(i, k) * rhs.at(k, j));
-            }
-        }
-    }
-    
-    return result;
-}
-
-Tensor2D operator+(const Tensor2D& lhs, const Tensor2D& rhs) {
-    Tensor2D result(lhs.dim_x, rhs.dim_y);
-    for (int32_t i = 0; i < lhs.dim_x; i++) {
-        for (int32_t j = 0; j < rhs.dim_y; j++) {
-            result.set(i, j, lhs.at(i, j) + rhs.at(i, j));
-        }
-    }
-    
-    return result;
-}
-
-Tensor2D ReLU(const Tensor2D& tensor) {
-    Tensor2D result(tensor.dim_x, tensor.dim_y);
-    for (int32_t i = 0; i < tensor.dim_x; i++) {
-        for (int32_t j = 0; j < tensor.dim_y; j++) {
-            result.set(i, j, std::max(0.0, tensor.at(i, j)));
-        }
-    }
-    
-    return result;
-}
-
-Vec2 operator+(const Vec2& lhs, const Vec2& rhs) {
-    return {lhs.x + rhs.x, lhs.y + rhs.y};
-}
-Vec2 operator-(const Vec2& lhs, const Vec2& rhs) {
-    return {lhs.x - rhs.x, lhs.y - rhs.y};
-}
 
 int32_t default_snake_move(Vec2 head, Vec2 body1) {
     if (head.x + 1 <= 8 && head.x + 1 != body1.x) {
@@ -54,6 +16,16 @@ int32_t default_snake_move(Vec2 head, Vec2 body1) {
         return DOWN;
     } else {
         return NONE;
+    }
+}
+
+Vec2 dir2Vec(Direction dir) {
+    switch (dir) {
+        case UP: return {0, 1};
+        case DOWN: return {0, -1};
+        case LEFT: return {-1, 0};
+        case RIGHT: return {1, 0};
+        default: return {0, 0};
     }
 }
 
@@ -130,13 +102,80 @@ int32_t snake_move_t1(int32_t* snake_pos, int32_t* food_pos) {
     return default_snake_move(snake.head, snake.body[0]);
 }
 
+std::vector<Snake> find_shortest_path(Snake& snake, Vec2 food, std::vector<Vec2>& barrier) {
+    // Implement Dijkstra's algorithm or A* algorithm to find the shortest path
+    std::vector<Snake> path;
+    
+    // // std::cout << "begin" << std::endl;
+
+    std::priority_queue<std::tuple<Snake, int32_t>, std::vector<std::tuple<Snake, int32_t>>, DistComparer> queue{};
+    std::unordered_map<Snake, Snake, std::hash<Snake>, SnakeValidComparer> visited{};
+
+    queue.push({snake, 0});
+    while (true) {
+        if (queue.empty()) {
+            break;
+        }
+        auto [current_snake, dist] = queue.top();
+        queue.pop();
+
+        if (current_snake.head == food) {
+            path.push_back(current_snake);
+            break;
+        }
+
+        // std::cout << "current_snake: " << current_snake.head.x << " " << current_snake.head.y << std::endl;
+        // std::cout << "dist: " << dist << std::endl;
+
+        for (const auto& dir : {UP, DOWN, LEFT, RIGHT}) {
+            Vec2 new_head = current_snake.head + dir2Vec(dir);
+            // // std::cout << "new_head: " << new_head.x << " " << new_head.y << std::endl;
+            if (new_head.x < 1 || new_head.x > 8 || new_head.y < 1 || new_head.y > 8) {
+                continue; // Out of bounds
+            }
+            if (std::find(barrier.begin(), barrier.end(), new_head) != barrier.end()) {
+                continue; // Hit a barrier
+            }
+            if (new_head.x == current_snake.body[0].x && new_head.y == current_snake.body[0].y) {
+                continue; // Hit the snake's body
+            }
+            Snake new_snake = Snake(std::vector<Vec2>{new_head, current_snake.head, current_snake.body[0], current_snake.body[1]});
+            if (visited.find(new_snake) != visited.end()) {
+                continue; // Already visited
+            }
+
+            // // std::cout << "take" << std::endl;
+            visited.insert({new_snake, current_snake});
+            queue.push({new_snake, dist + 1});
+        }
+    }
+
+    if (path.size() == 0) {
+        return path; // No path found
+    }
+
+    while (true) {
+        auto current = path.front();
+        auto prev = visited.find(current)->second;
+        if (prev.head == snake.head && prev.body[0] == snake.body[0]) {
+            break;
+        }
+        path.insert(path.begin(), prev);
+    }
+
+    return path;
+}
+
 int32_t snake_move_t2(int32_t* snake_pos, int32_t* food_pos, int32_t* barrier_pos) {
     auto snake = Snake(make_vector<Vec2>(snake_pos, 4));
     auto food = Vec2{food_pos[0], food_pos[1]};
     auto barrier = make_vector<Vec2>(barrier_pos, 12);
 
-    auto board = genBoard(snake, {food}, barrier);
-    auto choice = tensor2Dir(Model::getInstance().forward(board));
+    // Apply djkstra
+    auto path = find_shortest_path(snake, food, barrier);
+    if (path.empty()) {
+        return Direction::NONE;
+    }
 
-    return choice;
+    return snake.to(path[0].head);
 }

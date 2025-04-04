@@ -2,10 +2,9 @@ import assert from "assert";
 
 // Choose proper "import" depending on your PL.
 // import { greedySnakeMoveBarriers } from "./t2_as/build/release.js";
-// import { greedy_snake_move_barriers as greedySnakeMoveBarriers } from "./t2_rust/pkg/t2_rust.js"
+import { greedy_snake_move_barriers as greedySnakeMoveBarriers } from "./t2_sln_rs/pkg/t2_sln_rs.js";
 // [Write your own "import" for other PLs.]
-
-import { greedy_snake_move as greedySnakeMoveBarriers } from "./bridge.js";
+// import { greedy_snake_move as greedySnakeMoveBarriers } from "./bridge.js";
 
 function greedy_snake_barriers_checker(initial_snake, food_num, foods, barriers, access) {
     if (initial_snake.length !== 8) throw "Invalid snake length";
@@ -25,7 +24,7 @@ function greedy_snake_barriers_checker(initial_snake, food_num, foods, barriers,
     while (turn <= 200) {
         const direction = greedySnakeMoveBarriers(current_snake, current_foods, barriers);
 
-        console.log("turn " + turn + " :" + direction);
+        # console.log(current_snake[0], " ", current_snake[1], " ", direction);
 
         if (access === 0) {
             if (direction !== -1) {
@@ -105,6 +104,17 @@ assert.strictEqual(
     ) > 0,
     true
 );
+
+assert.strictEqual(
+    greedy_snake_barriers_checker(
+        [1,5,1,4,1,3,1,2],
+        1,
+        [1,1],
+        [2,1,2,2,2,3,2,4,2,5,2,6,3,1,4,1,5,1,6,1,7,1,7,2],
+        1
+    ) > 0,
+    true
+)
 
 assert.strictEqual(
     greedy_snake_barriers_checker(

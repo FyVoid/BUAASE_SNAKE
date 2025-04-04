@@ -12,3 +12,9 @@ module.wasm
 models/
 
 target/
+
+*.pyc
+
+*.o
+out
+*.a
