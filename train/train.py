@@ -127,8 +127,10 @@ def convert_model_to_onnx():
     model = torch.load(config.MODEL_PATH)
     agent = DQNAgent(state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE)
     agent.policy_net.load_state_dict(model)
-    dummy_input = torch.randn(1, config.GRID_SIZE, config.GRID_SIZE, config.STATE_SIZE)  # Adjust the input size as needed
-    torch.onnx.export(model, dummy_input, (config.ONNX_EXPORT_PATH), export_params=True)
+    agent.policy_net.eval()
+    agent.policy_net.to(config.DEVICE)
+    dummy_input = torch.randn(1, config.GRID_SIZE, config.GRID_SIZE, config.STATE_FEATURES).to(config.DEVICE)  # Adjust the input size as needed
+    torch.onnx.export(agent.policy_net, dummy_input, (config.ONNX_EXPORT_PATH), export_params=True)
 
     print(f"Model converted to ONNX format and saved at {config.ONNX_EXPORT_PATH}")
 
