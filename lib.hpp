@@ -24,6 +24,169 @@ struct Vec2 {
     }
 };
 
+class Conv2DLayer {
+public:
+    std::vector<std::vector<std::vector<std::vector<float>>>> weights;
+    std::vector<float> bias;
+    int32_t kernel_size;
+    int32_t stride;
+    int32_t padding;
+    int32_t in_channels;
+    int32_t out_channels;
+
+    Conv2DLayer(int32_t in_channels, int32_t out_channels, int32_t kernel_size, int32_t stride, int32_t padding) {
+        this->in_channels = in_channels;
+        this->out_channels = out_channels;
+        this->kernel_size = kernel_size;
+        this->stride = stride;
+        this->padding = padding;
+
+        weights.resize(out_channels, std::vector<std::vector<std::vector<float>>>(in_channels, std::vector<std::vector<float>>(kernel_size, std::vector<float>(kernel_size))));
+        bias.resize(out_channels);
+    }
+
+    std::vector<std::vector<std::vector<float>>> forward(const std::vector<std::vector<std::vector<float>>>& input) {
+        int32_t input_height = input.size();
+        int32_t input_width = input[0].size();
+        int32_t output_height = (input_height - kernel_size + 2 * padding) / stride + 1;
+        int32_t output_width = (input_width - kernel_size + 2 * padding) / stride + 1;
+
+        std::vector<std::vector<std::vector<float>>> output(out_channels, std::vector<std::vector<float>>(output_height, std::vector<float>(output_width)));
+
+        for (int32_t oc = 0; oc < out_channels; ++oc) {
+            for (int32_t oh = 0; oh < output_height; ++oh) {
+                for (int32_t ow = 0; ow < output_width; ++ow) {
+                    float sum = bias[oc];
+                    for (int32_t ic = 0; ic < in_channels; ++ic) {
+                        for (int32_t kh = 0; kh < kernel_size; ++kh) {
+                            for (int32_t kw = 0; kw < kernel_size; ++kw) {
+                                int32_t ih = oh * stride + kh - padding;
+                                int32_t iw = ow * stride + kw - padding;
+                                if (ih >= 0 && ih < input_height && iw >= 0 && iw < input_width) {
+                                    sum += weights[oc][ic][kh][kw] * input[ic][ih][iw];
+                                }
+                            }
+                        }
+                    }
+                    output[oc][oh][ow] = sum;
+                }
+            }
+        }
+
+        return output;
+    }
+};
+
+class DenseLayer {
+public:
+    std::vector<std::vector<float>> weights;
+    std::vector<float> bias;
+    int32_t in_features;
+    int32_t out_features;
+
+    DenseLayer(int32_t in_features, int32_t out_features) {
+        this->in_features = in_features;
+        this->out_features = out_features;
+
+        weights.resize(out_features, std::vector<float>(in_features));
+        bias.resize(out_features);
+    }
+
+    std::vector<float> forward(const std::vector<float>& input) {
+        std::vector<float> output(out_features, 0.0f);
+        for (int32_t i = 0; i < out_features; ++i) {
+            output[i] = bias[i];
+            for (int32_t j = 0; j < in_features; ++j) {
+                output[i] += weights[i][j] * input[j];
+            }
+        }
+        return output;
+    }
+};
+
+std::vector<std::vector<std::vector<float>>> permute(const std::vector<std::vector<std::vector<float>>>& input, int32_t dim1, int32_t dim2) {
+    int32_t dim1_size = input.size();
+    int32_t dim2_size = input[0].size();
+    int32_t dim3_size = input[0][0].size();
+
+    std::vector<std::vector<std::vector<float>>> output(dim2_size, std::vector<std::vector<float>>(dim1_size, std::vector<float>(dim3_size)));
+
+    for (int32_t i = 0; i < dim1_size; ++i) {
+        for (int32_t j = 0; j < dim2_size; ++j) {
+            for (int32_t k = 0; k < dim3_size; ++k) {
+                output[j][i][k] = input[i][j][k];
+            }
+        }
+    }
+
+    return output;
+}
+
+std::vector<std::vector<std::vector<float>>> relu(const std::vector<std::vector<std::vector<float>>>& input) {
+    int32_t dim1_size = input.size();
+    int32_t dim2_size = input[0].size();
+    int32_t dim3_size = input[0][0].size();
+
+    std::vector<std::vector<std::vector<float>>> output(dim1_size, std::vector<std::vector<float>>(dim2_size, std::vector<float>(dim3_size)));
+
+    for (int32_t i = 0; i < dim1_size; ++i) {
+        for (int32_t j = 0; j < dim2_size; ++j) {
+            for (int32_t k = 0; k < dim3_size; ++k) {
+                output[i][j][k] = std::max(0.0f, input[i][j][k]);
+            }
+        }
+    }
+
+    return output;
+}
+
+std::vector<float> flatten(const std::vector<std::vector<std::vector<float>>>& input) {
+    int32_t dim1_size = input.size();
+    int32_t dim2_size = input[0].size();
+    int32_t dim3_size = input[0][0].size();
+
+    std::vector<float> output(dim1_size * dim2_size * dim3_size);
+
+    for (int32_t i = 0; i < dim1_size; ++i) {
+        for (int32_t j = 0; j < dim2_size; ++j) {
+            for (int32_t k = 0; k < dim3_size; ++k) {
+                output[i * dim2_size * dim3_size + j * dim3_size + k] = input[i][j][k];
+            }
+        }
+    }
+
+    return output;
+}
+
+class Model {
+public:
+    Conv2DLayer conv1;
+    Conv2DLayer conv2;
+    Conv2DLayer conv3;
+    DenseLayer dense1;
+
+    Model(int32_t input_feature_size)
+        : conv1(input_feature_size, 32, 3, 1, 1),
+          conv2(32, 64, 5, 1, 2),
+          conv3(64, 32, 3, 1, 1),
+          dense1(32 * 8 * 8, 4) {}
+
+    std::vector<float> forward(const std::vector<std::vector<std::vector<float>>>& input) {
+        auto x = permute(input, 2, 1);
+        x = permute(x, 0, 1);
+        x = conv1.forward(x);
+        x = relu(x);
+        x = conv2.forward(x);
+        x = relu(x);
+        x = conv3.forward(x);
+        x = relu(x);
+        x = permute(x, 1, 2);
+        x = permute(x, 0, 1);
+        auto result = flatten(x);
+        return dense1.forward(result);
+    }
+};
+
 enum Direction {
     NONE = -1,
     UP = 0,

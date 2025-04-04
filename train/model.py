@@ -43,6 +43,7 @@ class DQN(nn.Module):
         x = F.relu(self.conv1(state))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv5(x))
+        x = x.permute(0, 2, 3, 1)
         x = self.flatten(x)
         x = self.out(x)
         return x

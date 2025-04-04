@@ -5,7 +5,7 @@ SEED = 617
 
 STATE_FEATURES = 8  # Number of features per cell (one-hot encoding length)
 
-MODEL_PATH = "models/1v1/dqn_snake_model.pth_7000.pth" # Path to the pre-trained model
+MODEL_PATH = "models/4p/dqn_snake_model.pth_7000.pth" # Path to the pre-trained model
 ONNX_EXPORT_PATH = "models/onnx/dqn_2p.onnx"
 
 # GAME_MODE = "1v1"

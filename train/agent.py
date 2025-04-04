@@ -1,4 +1,5 @@
 from collections import namedtuple, deque
+import os
 import random as rd
 import torch
 import torch.optim as optim
@@ -175,3 +176,17 @@ class DQNAgent:
         self.target_net.to(config.DEVICE)
         self.target_net.eval()
         print(f"Model loaded from {path}")
+        
+        
+if __name__ == "__main__":
+    # Example usage
+    agent = DQNAgent()
+    
+    agent.policy_net.load_state_dict(torch.load(config.MODEL_PATH, map_location=config.DEVICE))
+    # Save model parameters to a readable file
+    if os.path.exists("model_parameters.bin"):
+        os.remove("model_parameters.bin")
+    with open("model_parameters.bin", "wb") as f:
+        for name, param in agent.policy_net.named_parameters():
+            np.save(f, param.data.cpu().numpy())
+    print("Model parameters saved to model_parameters.txt")
