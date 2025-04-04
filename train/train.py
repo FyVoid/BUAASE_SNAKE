@@ -1,3 +1,4 @@
+import os
 import torch
 from collections import deque
 import matplotlib.pyplot as plt
@@ -8,7 +9,6 @@ import time
 import config
 from game import SnakeGame
 from agent import DQNAgent
-from utils import save_simple_params
 
 def eval(env: SnakeGame, agent: DQNAgent, episode: int, interact: bool):
     print("Starting evaluation...")
@@ -119,48 +119,19 @@ def train():
                 eval(env, agent, i_episode, config.INTERACT) # Evaluate the agent every LOG_INTERVAL episodes
 
         if i_episode % config.SAVE_INTERVAL == 0:
-            
-            
-            
-            
-            agent.save_model(config.MODEL_SAVE_PATH + f"_{i_episode}.pth")
+            agent.save_model(os.path.join("models", os.path.join(config.GAME_MODE, (config.MODEL_SAVE_PATH + f"_{i_episode}.pth"))))
 
     print("Training finished.")
 
-def plot_performance(scores, lengths, epsilons):
-    """Plots training scores, episode lengths, and epsilon decay."""
-    fig, axs = plt.subplots(3, 1, figsize=(10, 12), sharex=True)
+def convert_model_to_onnx():
+    model = torch.load(config.MODEL_PATH)
+    agent = DQNAgent(state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE)
+    agent.policy_net.load_state_dict(model)
+    dummy_input = torch.randn(1, config.GRID_SIZE, config.GRID_SIZE, config.STATE_SIZE)  # Adjust the input size as needed
+    torch.onnx.export(model, dummy_input, (config.ONNX_EXPORT_PATH), export_params=True)
 
-    # Plot scores
-    axs[0].plot(np.arange(len(scores)), scores, label='Episode Score')
-    moving_avg_scores = np.convolve(scores, np.ones(100)/100, mode='valid')
-    axs[0].plot(np.arange(len(moving_avg_scores)) + 99, moving_avg_scores, label='Moving Avg (100 episodes)', color='red')
-    axs[0].set_ylabel('Score')
-    axs[0].set_title('Episode Scores over Time')
-    axs[0].legend()
-    axs[0].grid(True)
-
-    # Plot episode lengths
-    axs[1].plot(np.arange(len(lengths)), lengths, label='Episode Length')
-    moving_avg_lengths = np.convolve(lengths, np.ones(100)/100, mode='valid')
-    axs[1].plot(np.arange(len(moving_avg_lengths)) + 99, moving_avg_lengths, label='Moving Avg (100 episodes)', color='red')
-    axs[1].set_ylabel('Steps')
-    axs[1].set_title('Episode Lengths over Time')
-    axs[1].legend()
-    axs[1].grid(True)
-
-     # Plot epsilon decay
-    axs[2].plot(np.arange(len(epsilons)), epsilons, label='Epsilon Value', color='green')
-    axs[2].set_xlabel('Episode #')
-    axs[2].set_ylabel('Epsilon')
-    axs[2].set_title('Epsilon Decay')
-    axs[2].legend()
-    axs[2].grid(True)
-
-    plt.tight_layout()
-    plt.savefig("training_performance.png")
-    print("Performance plot saved to training_performance.png")
-    # plt.show()
+    print(f"Model converted to ONNX format and saved at {config.ONNX_EXPORT_PATH}")
 
 if __name__ == "__main__":
-    train()
+    # train()
+    convert_model_to_onnx()

@@ -6,9 +6,10 @@ SEED = 617
 STATE_FEATURES = 8  # Number of features per cell (one-hot encoding length)
 
 MODEL_PATH = None
+ONNX_EXPORT_PATH = "models/onnx/dqn_4p.onnx"
 
-# GAME_MODE = "1v1"
-GAME_MODE = "4p"
+GAME_MODE = "1v1"
+# GAME_MODE = "4p"
 
 GRID_SIZE = 5 if GAME_MODE == "1v1" else 8
 
@@ -58,7 +59,6 @@ NUM_EVALS = 100
 LOG_INTERVAL = 100           # How often to print training progress
 SAVE_INTERVAL = 1000         # How often to save the model
 MODEL_SAVE_PATH = "dqn_snake_model.pth"
-PARAMS_SAVE_PATH = "dqn_snake_params.bin" # Path for simplified parameter saving
 
 DEVICE = "cuda" if torch.cuda.is_available else "cpu"
 print(f"Using device: {DEVICE}")
