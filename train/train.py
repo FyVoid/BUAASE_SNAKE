@@ -64,6 +64,10 @@ def train():
 
     env = SnakeGame(grid_size=config.GRID_SIZE)
     agent = DQNAgent(state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE)
+    
+    if config.MODEL_PATH != None:
+        agent.policy_net.load_state_dict(torch.load(config.MODEL_PATH))
+        agent.target_net.load_state_dict(agent.policy_net.state_dict())
 
     episode_lengths = []
     episode_lengths_window = deque(maxlen=100)

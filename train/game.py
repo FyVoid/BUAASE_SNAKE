@@ -209,9 +209,6 @@ class SnakeGame:
         area_after = [(x, y) for x in range(new_head[1] - config.SEARCH_DISTANCE, new_head[1] + config.SEARCH_DISTANCE + 1) for y in range(new_head[0] - config.SEARCH_DISTANCE, new_head[0] + config.SEARCH_DISTANCE + 1) if x >= 0 and x < self.grid_size and y >= 0 and y < self.grid_size]
         food_reachable_count_before = sum([1 for fx, fy in self.foods if (fx, fy) in area_before])
         food_reachable_count_after = sum([1 for fx, fy in self.foods if (fx, fy) in area_after])
-        
-        if food_reachable_count_before < food_reachable_count_after:
-            reward += config.REWARD['CLOSE_TO_FOOD']
 
         if new_head in self.foods:
             self.foods.remove(new_head)
@@ -220,6 +217,9 @@ class SnakeGame:
             else:
                 reward += config.REWARD['FOOD']
             self.score += 1
+            
+        if food_reachable_count_before < food_reachable_count_after and reward == 0:
+            reward += config.REWARD['CLOSE_TO_FOOD']
             
         if not self.dead and reward == 0:
             reward += config.REWARD['LIVING']

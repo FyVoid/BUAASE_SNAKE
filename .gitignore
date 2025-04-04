@@ -8,3 +8,5 @@ module.wasm
 *.txt.out
 
 *.pyc
+
+models/

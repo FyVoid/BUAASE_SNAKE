@@ -25,7 +25,7 @@ class AttentionLayer(nn.Module):
 
 class DQN(nn.Module):
     def __init__(self, state_features=config.STATE_FEATURES, state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE,
-        hidden1=config.HIDDEN_LAYER_1, hidden2=config.HIDDEN_LAYER_2, hidden3 = config.HIDDEN_LAYER_3):
+        hidden1=config.HIDDEN_LAYER_1, hidden2=config.HIDDEN_LAYER_2):
         super(DQN, self).__init__()
         self.flatten = nn.Flatten()
         self.conv1 = nn.Conv2d(in_channels=state_features, out_channels=hidden1, kernel_size=3, stride=1, padding=1)
