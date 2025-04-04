@@ -135,5 +135,5 @@ def convert_model_to_onnx():
     print(f"Model converted to ONNX format and saved at {config.ONNX_EXPORT_PATH}")
 
 if __name__ == "__main__":
-    # train()
-    convert_model_to_onnx()
+    train()
+    # convert_model_to_onnx()
