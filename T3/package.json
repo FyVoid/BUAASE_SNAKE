@@ -11,8 +11,7 @@
   "author": "BUAAASE-2025",
   "license": "ISC",
   "dependencies": {
-    "blessed": "^0.1.81"
+    "blessed": "^0.1.81",
+    "onnxruntime-web": "^1.21.0"
   }
 }
-  
-  

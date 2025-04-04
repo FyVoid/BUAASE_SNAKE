@@ -24,7 +24,7 @@ function greedy_snake_barriers_checker(initial_snake, food_num, foods, barriers,
     while (turn <= 200) {
         const direction = greedySnakeMoveBarriers(current_snake, current_foods, barriers);
 
-        # console.log(current_snake[0], " ", current_snake[1], " ", direction);
+        // console.log(current_snake[0], " ", current_snake[1], " ", direction);
 
         if (access === 0) {
             if (direction !== -1) {

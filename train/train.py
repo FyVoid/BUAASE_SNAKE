@@ -124,7 +124,7 @@ def train():
     print("Training finished.")
 
 def convert_model_to_onnx():
-    model = torch.load(config.MODEL_PATH)
+    model = torch.load(config.MODEL_PATH, map_location = torch.device('cpu'))
     agent = DQNAgent(state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE)
     agent.policy_net.load_state_dict(model)
     agent.policy_net.eval()

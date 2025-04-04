@@ -42,9 +42,9 @@ while (!isGameOver(gameState)) {
     }
 
     // If necessary, output the intermediate state through the following lines
-    // console.log(`\nRound ${gameState.round + 1}/${gameState.max_rounds}:`);
-    // console.log("Current board state:");
-    // printBoardState(gameState);
+    console.log(`\nRound ${gameState.round + 1}/${gameState.max_rounds}:`);
+    console.log("Current board state:");
+    printBoardState(gameState);
   } catch (error) {
     console.error("Game error:", error);
     process.exit(1);
