@@ -27,68 +27,68 @@ impl SnakeState {
         state
     }
 
-    // pub fn random(snake_len: usize, food_num: usize, bar_num: usize) -> Self {
-    //     use rand::rngs::ThreadRng;
-    //     use rand::Rng;
-    //     fn rand_point(rng: &mut ThreadRng) -> Point {
-    //         Point::new(rng.gen_range(1..=8), rng.gen_range(1..=8))
-    //     }
-    //     let mut rng = rand::thread_rng();
+    pub fn random(snake_len: usize, food_num: usize, bar_num: usize) -> Self {
+        use rand::rngs::ThreadRng;
+        use rand::Rng;
+        fn rand_point(rng: &mut ThreadRng) -> Point {
+            Point::new(rng.gen_range(1..=8), rng.gen_range(1..=8))
+        }
+        let mut rng = rand::thread_rng();
 
-    //     let head = rand_point(&mut rng);
-    //     let mut body = vec![head];
-    //     let mut last_part = head;
-    //     for _ in 0..snake_len - 1 {
-    //         let dir = match rng.gen_range(0..4) {
-    //             0 => Direction::U,
-    //             1 => Direction::D,
-    //             2 => Direction::L,
-    //             3 => Direction::R,
-    //             _ => unreachable!(),
-    //         };
-    //         let mut new_part = last_part.step(dir);
-    //         while body.contains(&new_part) || !new_part.inbounds(8) {
-    //             let dir = match rng.gen_range(0..4) {
-    //                 0 => Direction::U,
-    //                 1 => Direction::D,
-    //                 2 => Direction::L,
-    //                 3 => Direction::R,
-    //                 _ => unreachable!(),
-    //             };
-    //             new_part = last_part.step(dir);
-    //         }
-    //         body.push(new_part);
-    //         last_part = new_part;
-    //     }
+        let head = rand_point(&mut rng);
+        let mut body = vec![head];
+        let mut last_part = head;
+        for _ in 0..snake_len - 1 {
+            let dir = match rng.gen_range(0..4) {
+                0 => Direction::U,
+                1 => Direction::D,
+                2 => Direction::L,
+                3 => Direction::R,
+                _ => unreachable!(),
+            };
+            let mut new_part = last_part.step(dir);
+            while body.contains(&new_part) || !new_part.inbounds(8) {
+                let dir = match rng.gen_range(0..4) {
+                    0 => Direction::U,
+                    1 => Direction::D,
+                    2 => Direction::L,
+                    3 => Direction::R,
+                    _ => unreachable!(),
+                };
+                new_part = last_part.step(dir);
+            }
+            body.push(new_part);
+            last_part = new_part;
+        }
 
-    //     let mut food = vec![];
-    //     for _ in 0..food_num {
-    //         let mut new_food = rand_point(&mut rng);
-    //         while body.contains(&new_food) || food.contains(&new_food) {
-    //             new_food = rand_point(&mut rng);
-    //         }
-    //         food.push(new_food);
-    //     }
+        let mut food = vec![];
+        for _ in 0..food_num {
+            let mut new_food = rand_point(&mut rng);
+            while body.contains(&new_food) || food.contains(&new_food) {
+                new_food = rand_point(&mut rng);
+            }
+            food.push(new_food);
+        }
 
-    //     let mut barriers = vec![];
-    //     for _ in 0..bar_num {
-    //         let mut new_barrier = rand_point(&mut rng);
-    //         while body.contains(&new_barrier)
-    //             || food.contains(&new_barrier)
-    //             || barriers.contains(&new_barrier)
-    //         {
-    //             new_barrier = rand_point(&mut rng);
-    //         }
-    //         barriers.push(new_barrier);
-    //     }
-    //     let state = SnakeState {
-    //         body,
-    //         food,
-    //         barriers,
-    //     };
-    //     assert!(state.verify_state(), "Snake state is invalid");
-    //     state
-    // }
+        let mut barriers = vec![];
+        for _ in 0..bar_num {
+            let mut new_barrier = rand_point(&mut rng);
+            while body.contains(&new_barrier)
+                || food.contains(&new_barrier)
+                || barriers.contains(&new_barrier)
+            {
+                new_barrier = rand_point(&mut rng);
+            }
+            barriers.push(new_barrier);
+        }
+        let state = SnakeState {
+            body,
+            food,
+            barriers,
+        };
+        assert!(state.verify_state(), "Snake state is invalid");
+        state
+    }
 
     fn verify_state(&self) -> bool {
         let mut occipied_points: HashSet<Point> = HashSet::new();
