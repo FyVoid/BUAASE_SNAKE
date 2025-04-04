@@ -4,4 +4,9 @@
 module.cjs
 module.wasm
 
-target/
+*.txt
+*.txt.out
+
+*.pyc
+
+models/
