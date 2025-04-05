@@ -24,51 +24,69 @@ struct Vec2 {
     }
 };
 
+class Tensor {
+public:
+    int32_t dim;
+    std::vector<int32_t> shape;
+    std::vector<float> data;
+
+    Tensor(int32_t dim, const std::vector<int32_t>& shape) : dim(dim), shape(shape) {
+        int32_t size = 1;
+        for (int32_t s : shape) {
+            size *= s;
+        }
+        data.resize(size);
+    }
+
+    float& at(const std::vector<int32_t>& indices) {
+        int32_t index = 0;
+        int32_t stride = 1;
+        for (int32_t i = dim - 1; i >= 0; --i) {
+            index += indices[i] * stride;
+            stride *= shape[i];
+        }
+        return data[index];
+    }
+};
+
 class Conv2DLayer {
 public:
-    std::vector<std::vector<std::vector<std::vector<float>>>> weights;
-    std::vector<float> bias;
+    Tensor weights;
+    Tensor bias;
     int32_t kernel_size;
     int32_t stride;
     int32_t padding;
     int32_t in_channels;
     int32_t out_channels;
 
-    Conv2DLayer(int32_t in_channels, int32_t out_channels, int32_t kernel_size, int32_t stride, int32_t padding) {
-        this->in_channels = in_channels;
-        this->out_channels = out_channels;
-        this->kernel_size = kernel_size;
-        this->stride = stride;
-        this->padding = padding;
+    Conv2DLayer(int32_t in_channels, int32_t out_channels, int32_t kernel_size, int32_t stride, int32_t padding)
+        : in_channels(in_channels), out_channels(out_channels), kernel_size(kernel_size), stride(stride), padding(padding),
+          weights(4, {out_channels, in_channels, kernel_size, kernel_size}), bias(1, {out_channels}) {}
 
-        weights.resize(out_channels, std::vector<std::vector<std::vector<float>>>(in_channels, std::vector<std::vector<float>>(kernel_size, std::vector<float>(kernel_size))));
-        bias.resize(out_channels);
-    }
-
-    std::vector<std::vector<std::vector<float>>> forward(const std::vector<std::vector<std::vector<float>>>& input) {
-        int32_t input_height = input.size();
-        int32_t input_width = input[0].size();
+    Tensor forward(Tensor& input) {
+        int32_t input_height = input.shape[2];
+        int32_t input_width = input.shape[3];
         int32_t output_height = (input_height - kernel_size + 2 * padding) / stride + 1;
         int32_t output_width = (input_width - kernel_size + 2 * padding) / stride + 1;
 
-        std::vector<std::vector<std::vector<float>>> output(out_channels, std::vector<std::vector<float>>(output_height, std::vector<float>(output_width)));
+        Tensor output = Tensor(4, {out_channels, output_height, output_width});
 
         for (int32_t oc = 0; oc < out_channels; ++oc) {
             for (int32_t oh = 0; oh < output_height; ++oh) {
                 for (int32_t ow = 0; ow < output_width; ++ow) {
-                    float sum = bias[oc];
+                    float sum = bias.at({oc});
                     for (int32_t ic = 0; ic < in_channels; ++ic) {
                         for (int32_t kh = 0; kh < kernel_size; ++kh) {
                             for (int32_t kw = 0; kw < kernel_size; ++kw) {
                                 int32_t ih = oh * stride + kh - padding;
                                 int32_t iw = ow * stride + kw - padding;
                                 if (ih >= 0 && ih < input_height && iw >= 0 && iw < input_width) {
-                                    sum += weights[oc][ic][kh][kw] * input[ic][ih][iw];
+                                    sum += weights.at({oc, ic, kh, kw}) * input.at({ic, ih, iw});
                                 }
                             }
                         }
                     }
-                    output[oc][oh][ow] = sum;
+                    output.at({oc, oh, ow}) = sum;
                 }
             }
         }
@@ -79,36 +97,32 @@ public:
 
 class DenseLayer {
 public:
-    std::vector<std::vector<float>> weights;
-    std::vector<float> bias;
+    Tensor weights;
+    Tensor bias;
     int32_t in_features;
     int32_t out_features;
 
-    DenseLayer(int32_t in_features, int32_t out_features) {
-        this->in_features = in_features;
-        this->out_features = out_features;
+    DenseLayer(int32_t in_features, int32_t out_features)
+        : in_features(in_features), out_features(out_features),
+          weights(2, {out_features, in_features}), bias(1, {out_features}) {}
 
-        weights.resize(out_features, std::vector<float>(in_features));
-        bias.resize(out_features);
-    }
-
-    std::vector<float> forward(const std::vector<float>& input) {
-        std::vector<float> output(out_features, 0.0f);
+    Tensor forward(Tensor& input) {
+        Tensor output(1, {out_features});
         for (int32_t i = 0; i < out_features; ++i) {
-            output[i] = bias[i];
+            output.at({i}) = bias.at({i});
             for (int32_t j = 0; j < in_features; ++j) {
-                output[i] += weights[i][j] * input[j];
+                output.at({i}) += weights.at({i, j}) * input.at({j});
             }
         }
         return output;
     }
 };
 
-std::vector<std::vector<std::vector<float>>> permute(const std::vector<std::vector<std::vector<float>>>& input, int32_t dim1, int32_t dim2);
+Tensor permute(Tensor& input, std::vector<int32_t> index);
 
-std::vector<std::vector<std::vector<float>>> relu(const std::vector<std::vector<std::vector<float>>>& input);
+Tensor relu(Tensor input);
 
-std::vector<float> flatten(const std::vector<std::vector<std::vector<float>>>& input);
+Tensor flatten(Tensor input);
 
 class Model {
 public:
@@ -123,14 +137,14 @@ public:
           conv3(64, 32, 3, 1, 1),
           dense1(32 * 8 * 8, 4) {}
 
-    Model(std::vector<std::vector<std::vector<std::vector<float>>>> conv1_weights,
-          std::vector<float> conv1_bias,
-          std::vector<std::vector<std::vector<std::vector<float>>>> conv2_weights,
-          std::vector<float> conv2_bias,
-          std::vector<std::vector<std::vector<std::vector<float>>>> conv3_weights,
-          std::vector<float> conv3_bias,
-          std::vector<std::vector<float>> dense1_weights,
-          std::vector<float> dense1_bias)
+    Model(Tensor& conv1_weights,
+          Tensor& conv1_bias,
+          Tensor& conv2_weights,
+          Tensor& conv2_bias,
+          Tensor& conv3_weights,
+          Tensor& conv3_bias,
+          Tensor& dense1_weights,
+          Tensor& dense1_bias)
         : conv1(8, 32, 3, 1, 1),
           conv2(32, 64, 5, 1, 2),
           conv3(64, 32, 3, 1, 1),
@@ -145,17 +159,15 @@ public:
         dense1.bias = dense1_bias;
     }
 
-    std::vector<float> forward(const std::vector<std::vector<std::vector<float>>>& input) {
-        auto x = permute(input, 2, 1);
-        x = permute(x, 0, 1);
+    Tensor forward(Tensor& input) {
+        auto x = permute(input, {2, 0, 1});
         x = conv1.forward(x);
         x = relu(x);
         x = conv2.forward(x);
         x = relu(x);
         x = conv3.forward(x);
         x = relu(x);
-        x = permute(x, 1, 2);
-        x = permute(x, 0, 1);
+        x = permute(x, {1, 2, 0});
         auto result = flatten(x);
         return dense1.forward(result);
     }
