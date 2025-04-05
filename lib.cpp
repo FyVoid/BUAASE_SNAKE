@@ -36,6 +36,60 @@ std::vector<T> make_vector(void* arr, int32_t size) {
     return vec;
 }
 
+std::vector<std::vector<std::vector<float>>> permute(const std::vector<std::vector<std::vector<float>>>& input, int32_t dim1, int32_t dim2) {
+    int32_t dim1_size = input.size();
+    int32_t dim2_size = input[0].size();
+    int32_t dim3_size = input[0][0].size();
+
+    std::vector<std::vector<std::vector<float>>> output(dim2_size, std::vector<std::vector<float>>(dim1_size, std::vector<float>(dim3_size)));
+
+    for (int32_t i = 0; i < dim1_size; ++i) {
+        for (int32_t j = 0; j < dim2_size; ++j) {
+            for (int32_t k = 0; k < dim3_size; ++k) {
+                output[j][i][k] = input[i][j][k];
+            }
+        }
+    }
+
+    return output;
+}
+
+std::vector<std::vector<std::vector<float>>> relu(const std::vector<std::vector<std::vector<float>>>& input) {
+    int32_t dim1_size = input.size();
+    int32_t dim2_size = input[0].size();
+    int32_t dim3_size = input[0][0].size();
+
+    std::vector<std::vector<std::vector<float>>> output(dim1_size, std::vector<std::vector<float>>(dim2_size, std::vector<float>(dim3_size)));
+
+    for (int32_t i = 0; i < dim1_size; ++i) {
+        for (int32_t j = 0; j < dim2_size; ++j) {
+            for (int32_t k = 0; k < dim3_size; ++k) {
+                output[i][j][k] = std::max(0.0f, input[i][j][k]);
+            }
+        }
+    }
+
+    return output;
+}
+
+std::vector<float> flatten(const std::vector<std::vector<std::vector<float>>>& input) {
+    int32_t dim1_size = input.size();
+    int32_t dim2_size = input[0].size();
+    int32_t dim3_size = input[0][0].size();
+
+    std::vector<float> output(dim1_size * dim2_size * dim3_size);
+
+    for (int32_t i = 0; i < dim1_size; ++i) {
+        for (int32_t j = 0; j < dim2_size; ++j) {
+            for (int32_t k = 0; k < dim3_size; ++k) {
+                output[i * dim2_size * dim3_size + j * dim3_size + k] = input[i][j][k];
+            }
+        }
+    }
+
+    return output;
+}
+
 int32_t snake_move_t1(int32_t* snake_pos, int32_t* food_pos) {
     auto snake = Snake(make_vector<Vec2>(snake_pos, 4));
     auto food = Vec2{food_pos[0], food_pos[1]};
