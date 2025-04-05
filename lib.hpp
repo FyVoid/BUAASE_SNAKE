@@ -261,3 +261,5 @@ int32_t default_snake_move(Vec2 head, Vec2 body1);
 int32_t snake_move_t1(int32_t* snake_pos, int32_t* food_pos);
 std::vector<Snake> find_shortest_path(Snake& snake, Vec2 food, std::vector<Vec2>& barrier);
 int32_t snake_move_t2(int32_t* snake_pos, int32_t* food_pos, int32_t* barrier_pos);
+void model_1v1_init(Model& model);
+int32_t snake_inference(int32_t board_size, int32_t* snake_pos, int32_t enemy_count, int32_t* enemy_pos, int32_t food_num, int32_t* food_pos);

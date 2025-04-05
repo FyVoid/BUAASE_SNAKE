@@ -47,3 +47,8 @@ class DQN(nn.Module):
         x = self.flatten(x)
         x = self.out(x)
         return x
+
+
+if __name__ == '__main__':
+    dict = torch.load(config.MODEL_PATH, map_location=torch.device('cpu') )
+    print(dict)

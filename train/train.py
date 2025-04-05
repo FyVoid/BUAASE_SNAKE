@@ -134,6 +134,17 @@ def convert_model_to_onnx():
 
     print(f"Model converted to ONNX format and saved at {config.ONNX_EXPORT_PATH}")
 
+def save_raw():
+    model = torch.load(config.MODEL_PATH, map_location = torch.device('cpu'))
+    # save to param_name.txt
+    agent = DQNAgent(state_size=config.STATE_SIZE, action_size=config.ACTION_SIZE)
+    agent.policy_net.load_state_dict(model)
+    for name, param in agent.policy_net.named_parameters():
+        with open(config.MODEL_SAVE_PATH.replace(".pth", name + ".txt"), 'w') as f:
+            f.write(str(param.data.cpu().numpy().tolist()))
+    
+
 if __name__ == "__main__":
-    train()
+    # train()
     # convert_model_to_onnx()
+    save_raw()
