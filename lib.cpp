@@ -200,7 +200,7 @@ enum GridType {
     FOOD,
 };
 
-void model_1v1_init(Model& model) {
+void model_2p_init(Model& model) {
     assert(model.conv1.weights.data.size() == CONV1_WEIGHT_2P.size());
     assert(model.conv1.bias.data.size() == CONV1_BIAS_2P.size());
     assert(model.conv2.weights.data.size() == CONV2_WEIGHT_2P.size());
@@ -220,10 +220,34 @@ void model_1v1_init(Model& model) {
     memcpy(model.dense1.bias.data.data(), DENSE_BIAS_2P.data(), DENSE_BIAS_2P.size() * sizeof(float));
 }
 
+void model_4p_init(Model& model) {
+    assert(model.conv1.weights.data.size() == CONV1_WEIGHT_4P.size());
+    assert(model.conv1.bias.data.size() == CONV1_BIAS_4P.size());
+    assert(model.conv2.weights.data.size() == CONV2_WEIGHT_4P.size());
+    assert(model.conv2.bias.data.size() == CONV2_BIAS_4P.size());
+    assert(model.conv3.weights.data.size() == CONV3_WEIGHT_4P.size());
+    assert(model.conv3.bias.data.size() == CONV3_BIAS_4P.size());
+    // std::cout << model.dense1.weights.data.size() << " " << DENSE_WEIGHT_2P.size() << std::endl;
+    assert(model.dense1.weights.data.size() == DENSE_WEIGHT_4P.size());
+    assert(model.dense1.bias.data.size() == DENSE_BIAS_4P.size());
+    memcpy(model.conv1.weights.data.data(), CONV1_WEIGHT_4P.data(), CONV1_WEIGHT_4P.size() * sizeof(float));
+    memcpy(model.conv1.bias.data.data(), CONV1_BIAS_4P.data(), CONV1_BIAS_4P.size() * sizeof(float));
+    memcpy(model.conv2.weights.data.data(), CONV2_WEIGHT_4P.data(), CONV2_WEIGHT_4P.size() * sizeof(float));
+    memcpy(model.conv2.bias.data.data(), CONV2_BIAS_4P.data(), CONV2_BIAS_4P.size() * sizeof(float));
+    memcpy(model.conv3.weights.data.data(), CONV3_WEIGHT_4P.data(), CONV3_WEIGHT_4P.size() * sizeof(float));
+    memcpy(model.conv3.bias.data.data(), CONV3_BIAS_4P.data(), CONV3_BIAS_4P.size() * sizeof(float));
+    memcpy(model.dense1.weights.data.data(), DENSE_WEIGHT_4P.data(), DENSE_WEIGHT_4P.size() * sizeof(float));
+    memcpy(model.dense1.bias.data.data(), DENSE_BIAS_4P.data(), DENSE_BIAS_4P.size() * sizeof(float));
+}
+
 int32_t snake_inference(int32_t board_size, int32_t* snake_pos, int32_t enemy_count, int32_t* enemy_pos, int32_t food_num, int32_t* food_pos) {
     Tensor input = Tensor(3, {board_size, board_size, 8});
-    Model model_2p(board_size);
-    model_1v1_init(model_2p);
+    Model model(board_size);
+    if (board_size == 5) {
+        model_2p_init(model);
+    } else if (board_size == 8) {
+        model_4p_init(model);
+    }
     auto set = [&](int32_t x, int32_t y, int32_t type) {
         input.at({x-1, y-1, type}) = 1.0f;
     };
@@ -261,18 +285,18 @@ int32_t snake_inference(int32_t board_size, int32_t* snake_pos, int32_t enemy_co
         }
     }
 
-    auto result = model_2p.forward(input);
+    auto result = model.forward(input);
     float max_value = -1e9;
     int32_t max_index = -1;
     for (auto i = 0; i < 4; ++i) {
-        std::cout << result.at({i}) << " ";
+        // std::cout << result.at({i}) << " ";
         if (result.at({i}) > max_value) {
             max_value = result.at({i});
             max_index = i;
         }
     }
     // std::cout << "mamba out" << std::endl;
-    std::cout << max_index << std::endl;
+    // std::cout << max_index << std::endl;
     return max_index;
     // return 0;
 }

@@ -1,5 +1,5 @@
 out:
-	em++ lib.cpp wrapper.cpp -o module.cjs \
+	em++ lib.cpp wrapper.cpp -O3 -o module.cjs \
 	-s ALLOW_MEMORY_GROWTH=1 \
 	-s TOTAL_MEMORY=1Gb \
 	-s STACK_SIZE=52428800 \

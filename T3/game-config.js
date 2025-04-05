@@ -11,7 +11,7 @@
 import { greedy_snake_move as snake1 } from './bridge.js';
 
 // Game mode
-export const GAME_MODE = "1v1"; // "1v1" or "4snakes" or "custom"
+export const GAME_MODE = "4snakes"; // "1v1" or "4snakes" or "custom"
 
 // Snake decision functions mapping
 export const snakeModules = [
