@@ -146,9 +146,14 @@ enum GridType {
     FOOD,
 };
 
+Model model_2p = Model(
+
+);
+Model model_4p = Model(
+
+);
+
 int32_t snake_inference(int32_t board_size, int32_t* snake_pos, int32_t enemy_count, int32_t* enemy_pos, int32_t food_num, int32_t* food_pos) {
-    Model model(board_size * board_size * 8);
-    model_1v1_init(model);
     std::vector<std::vector<std::vector<float>>> input(board_size, std::vector<std::vector<float>>(board_size, std::vector<float>(8, 0.0f)));
     auto set = [&](int32_t x, int32_t y, int32_t type) {
         input[x-1][y-1][type] = 1.0f;
@@ -187,7 +192,7 @@ int32_t snake_inference(int32_t board_size, int32_t* snake_pos, int32_t enemy_co
         }
     }
 
-    auto result = model.forward(input);
+    auto result = model_2p.forward(input);
     auto max_index = std::max_element(result.begin(), result.end()) - result.begin();
     return max_index;
 }

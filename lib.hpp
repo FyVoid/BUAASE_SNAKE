@@ -165,11 +165,33 @@ public:
     Conv2DLayer conv3;
     DenseLayer dense1;
 
-    Model(int32_t input_feature_size)
-        : conv1(input_feature_size, 32, 3, 1, 1),
+    Model()
+        : conv1(8, 32, 3, 1, 1),
           conv2(32, 64, 5, 1, 2),
           conv3(64, 32, 3, 1, 1),
           dense1(32 * 8 * 8, 4) {}
+
+    Model(std::vector<std::vector<std::vector<std::vector<float>>>>& conv1_weights,
+          std::vector<float>& conv1_bias,
+          std::vector<std::vector<std::vector<std::vector<float>>>>& conv2_weights,
+          std::vector<float>& conv2_bias,
+          std::vector<std::vector<std::vector<std::vector<float>>>>& conv3_weights,
+          std::vector<float>& conv3_bias,
+          std::vector<std::vector<float>>& dense1_weights,
+          std::vector<float>& dense1_bias)
+        : conv1(8, 32, 3, 1, 1),
+          conv2(32, 64, 5, 1, 2),
+          conv3(64, 32, 3, 1, 1),
+          dense1(32 * 8 * 8, 4) {
+        conv1.weights = conv1_weights;
+        conv1.bias = conv1_bias;
+        conv2.weights = conv2_weights;
+        conv2.bias = conv2_bias;
+        conv3.weights = conv3_weights;
+        conv3.bias = conv3_bias;
+        dense1.weights = dense1_weights;
+        dense1.bias = dense1_bias;
+    }
 
     std::vector<float> forward(const std::vector<std::vector<std::vector<float>>>& input) {
         auto x = permute(input, 2, 1);
@@ -186,6 +208,9 @@ public:
         return dense1.forward(result);
     }
 };
+
+extern Model model_2p;
+extern Model model_4p;
 
 enum Direction {
     NONE = -1,
