@@ -1,8 +1,8 @@
 out:
 	em++ lib.cpp wrapper.cpp -o module.cjs \
 	-s ALLOW_MEMORY_GROWTH=1 \
-	-s INITIAL_MEMORY=128MB \
-	-s MAXIMUM_MEMORY=512MB \
+	-s TOTAL_MEMORY=1Gb \
+	-s STACK_SIZE=52428800 \
 	-s SAFE_HEAP=1 -g \
 	-s EXPORTED_RUNTIME_METHODS='["cwrap", "ccall"]' \
 	-s WASM=1 \

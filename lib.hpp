@@ -1,6 +1,8 @@
 #pragma once
 
 #include <functional>
+#include <iostream>
+#include <ostream>
 #include <vector>
 
 struct Vec2 {
@@ -30,7 +32,7 @@ public:
     std::vector<int32_t> shape;
     std::vector<float> data;
 
-    Tensor(int32_t dim, const std::vector<int32_t>& shape) : dim(dim), shape(shape) {
+    Tensor(int32_t dim, std::vector<int32_t> shape) : dim(dim), shape(shape) {
         int32_t size = 1;
         for (int32_t s : shape) {
             size *= s;
@@ -38,12 +40,33 @@ public:
         data.resize(size);
     }
 
-    float& at(const std::vector<int32_t>& indices) {
+    ~Tensor() {
+        // std::cout << "size:" << data.size() << std::endl;
+        // std::cout << "tensor:";
+        for (auto value : shape) {
+            // std::cout << value << " ";
+        }
+        // std::cout << std::endl;
+    }
+
+    float& at(std::vector<int32_t> indices) {
         int32_t index = 0;
         int32_t stride = 1;
         for (int32_t i = dim - 1; i >= 0; --i) {
             index += indices[i] * stride;
             stride *= shape[i];
+        }
+        if (index < 0 || index >= static_cast<int32_t>(data.size())) {
+            // std::cout << "shape:";
+            for (auto value : shape) {
+                // std::cout << value << " ";
+            }
+            // std::cout << std::endl;
+            for (auto indice : indices) {
+                // std::cout << indice << " ";
+            }
+            // std::cout << std::endl;
+            throw std::out_of_range("Index out of bounds.");
         }
         return data[index];
     }
@@ -64,12 +87,13 @@ public:
           weights(4, {out_channels, in_channels, kernel_size, kernel_size}), bias(1, {out_channels}) {}
 
     Tensor forward(Tensor& input) {
-        int32_t input_height = input.shape[2];
-        int32_t input_width = input.shape[3];
+        // std::cout << "Conv " << kernel_size << std::endl;
+        int32_t input_height = input.shape[1];
+        int32_t input_width = input.shape[2];
         int32_t output_height = (input_height - kernel_size + 2 * padding) / stride + 1;
         int32_t output_width = (input_width - kernel_size + 2 * padding) / stride + 1;
 
-        Tensor output = Tensor(4, {out_channels, output_height, output_width});
+        Tensor output = Tensor(3, {out_channels, output_height, output_width});
 
         for (int32_t oc = 0; oc < out_channels; ++oc) {
             for (int32_t oh = 0; oh < output_height; ++oh) {
@@ -107,13 +131,15 @@ public:
           weights(2, {out_features, in_features}), bias(1, {out_features}) {}
 
     Tensor forward(Tensor& input) {
+        // std::cout << "Dense " << std::endl;
         Tensor output(1, {out_features});
         for (int32_t i = 0; i < out_features; ++i) {
             output.at({i}) = bias.at({i});
             for (int32_t j = 0; j < in_features; ++j) {
-                output.at({i}) += weights.at({i, j}) * input.at({j});
+                output.at({i}) += input.at({j}) * weights.at({i, j});
             }
         }
+
         return output;
     }
 };
@@ -131,36 +157,46 @@ public:
     Conv2DLayer conv3;
     DenseLayer dense1;
 
-    Model()
+    Model(int32_t input_features)
         : conv1(8, 32, 3, 1, 1),
           conv2(32, 64, 5, 1, 2),
           conv3(64, 32, 3, 1, 1),
-          dense1(32 * 8 * 8, 4) {}
+          dense1(32 * input_features * input_features, 4) {}
 
-    Model(std::vector<float> conv1_weights,
+    Model
+    (std::vector<float> conv1_weights,
           std::vector<float> conv1_bias,
           std::vector<float> conv2_weights,
           std::vector<float> conv2_bias,
           std::vector<float> conv3_weights,
           std::vector<float> conv3_bias,
           std::vector<float> dense1_weights,
-          std::vector<float> dense1_bias)
+          std::vector<float> dense1_bias
+        )
         : conv1(8, 32, 3, 1, 1),
           conv2(32, 64, 5, 1, 2),
           conv3(64, 32, 3, 1, 1),
           dense1(32 * 8 * 8, 4) {
-        conv1.weights.data = conv1_weights;
-        conv1.bias.data = conv1_bias;
-        conv2.weights.data = conv2_weights;
-        conv2.bias.data = conv2_bias;
-        conv3.weights.data = conv3_weights;
-        conv3.bias.data = conv3_bias;
-        dense1.weights.data = dense1_weights;
-        dense1.bias.data = dense1_bias;
+        // memcpy(conv1.weights.data.data(), conv1_weights.data(), conv1_weights.size() * sizeof(float));
+        // memcpy(conv1.bias.data.data(), conv1_bias.data(), conv1_bias.size() * sizeof(float));
+        // memcpy(conv2.weights.data.data(), conv2_weights.data(), conv2_weights.size() * sizeof(float));
+        // memcpy(conv2.bias.data.data(), conv2_bias.data(), conv2_bias.size() * sizeof(float));
+        // memcpy(conv3.weights.data.data(), conv3_weights.data(), conv3_weights.size() * sizeof(float));
+        // memcpy(conv3.bias.data.data(), conv3_bias.data(), conv3_bias.size() * sizeof(float));
+        // memcpy(dense1.weights.data.data(), dense1_weights.data(), dense1_weights.size() * sizeof(float));
+        // memcpy(dense1.bias.data.data(), dense1_bias.data(), dense1_bias.size() * sizeof(float));
     }
 
     Tensor forward(Tensor& input) {
+        for (auto value : input.shape) {
+            // std::cout << value << " ";
+        }
+        // std::cout << std::endl;
         auto x = permute(input, {2, 0, 1});
+        for (auto value : x.shape) {
+            // std::cout << value << " ";
+        }
+        // std::cout << std::endl;
         x = conv1.forward(x);
         x = relu(x);
         x = conv2.forward(x);
@@ -169,12 +205,13 @@ public:
         x = relu(x);
         x = permute(x, {1, 2, 0});
         auto result = flatten(x);
-        return dense1.forward(result);
+        for (auto value : result.shape) {
+            // std::cout << value << " ";
+        }
+        auto ret = dense1.forward(result);
+        return ret;
     }
 };
-
-extern Model model_2p;
-// extern Model model_4p;
 
 enum Direction {
     NONE = -1,

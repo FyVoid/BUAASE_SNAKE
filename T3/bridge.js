@@ -15,5 +15,5 @@ export const greedy_snake_move = (board_size, snake_pos, enemy_num, enemy_pos, f
     let snake_array = new Uint8Array((new Int32Array(snake_pos)).buffer)
     let enemy_array = new Uint8Array((new Int32Array(enemy_pos)).buffer)
     let food_array = new Uint8Array((new Int32Array(food_pos)).buffer)
-    return c_func(board_size, snake_pos, enemy_num, enemy_pos, food_num, food_pos);
+    return c_func(board_size, snake_array, enemy_num, enemy_array, food_num, food_array);
 };

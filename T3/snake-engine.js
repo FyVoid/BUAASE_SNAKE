@@ -51,7 +51,7 @@ export function initializeGameState(mode = "4snakes", snakeModules, customSeed =
 
   // Timing
   let time = new Array(snake_num).fill(0);
-  const time_limit = 500; // 500 ms time limit
+  const time_limit = 5000; // 500 ms time limit
 
   return {
     n,
