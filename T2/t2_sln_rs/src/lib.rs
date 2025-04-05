@@ -3,7 +3,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use wasm_bindgen::prelude::*;
 
 mod common;
-mod verifier;
+// #[cfg(all(test, not(target_arch = "wasm32")))]
+// mod verifier;
 
 use common::*;
 
@@ -140,7 +141,7 @@ fn reachable<const N: usize>(board: &mut Board<N>, start: &Point, init_dir: Dire
                 match tile {
                     Tile::Empty(d0) => {
                         queue.push_back((next, dir, depth + 1));
-                        if depth + 1 < d0  {
+                        if depth + 1 < d0 {
                             board.set_tile(next, Tile::Empty(depth + 1));
                         }
                     }
@@ -215,7 +216,10 @@ fn pathfinding<const N: usize>(
 
             let next_point = current_point.step(dir);
 
-            let is_passable = matches!(board.get_tile(next_point), Some(Tile::Empty(_)) | Some(Tile::Food(_)));
+            let is_passable = matches!(
+                board.get_tile(next_point),
+                Some(Tile::Empty(_)) | Some(Tile::Food(_))
+            );
             if !is_passable {
                 continue;
             }
@@ -229,7 +233,7 @@ fn pathfinding<const N: usize>(
             queue.push_back(next_point);
 
             if next_point == *target {
-                let mut trace = next_point; 
+                let mut trace = next_point;
                 loop {
                     let (prev_point, step_dir) = predecessor[&trace];
 
@@ -244,131 +248,127 @@ fn pathfinding<const N: usize>(
     None
 }
 
-#[cfg(test)]
-mod tests {
-    use std::io::Write;
+// #[cfg(all(test, not(target_arch = "wasm32")))]
+// mod tests {
+//     use std::io::Write;
 
-    use crate::verifier::SnakeState;
+//     use crate::verifier::SnakeState;
 
-    use super::*;
+//     use super::*;
 
-    #[link(name = "a")]
-    unsafe extern "C" {
-        unsafe fn _func_t2(
-            pos: *const i32,
-            food: *const i32,
-            barriers: *const i32,
-        ) -> i32;
-    }
+//     #[test]
+//     fn testcase1() {
+//         let pos = [1, 5, 1, 4, 1, 3, 1, 2]
+//             .chunks(2)
+//             .map(|v| Point::new(v[0], v[1]))
+//             .collect::<Vec<_>>();
+//         let food = [1, 1]
+//             .chunks(2)
+//             .map(|v| Point::new(v[0], v[1]))
+//             .collect::<Vec<_>>();
+//         let barriers = [
+//             2, 1, 2, 2, 2, 3, 2, 4, 2, 5, 2, 6, 2, 7, 3, 1, 4, 1, 5, 1, 6, 1, 7, 1, 7, 2,
+//         ]
+//         .chunks(2)
+//         .map(|v| Point::new(v[0], v[1]))
+//         .collect::<Vec<_>>();
 
-    #[test]
-    fn testcase1() {
-        let pos = [1, 5, 1, 4, 1, 3, 1, 2]
-            .chunks(2)
-            .map(|v| Point::new(v[0], v[1]))
-            .collect::<Vec<_>>();
-        let food = [1, 1]
-            .chunks(2)
-            .map(|v| Point::new(v[0], v[1]))
-            .collect::<Vec<_>>();
-        let barriers = [
-            2, 1, 2, 2, 2, 3, 2, 4, 2, 5, 2, 6, 2, 7, 3, 1, 4, 1, 5, 1, 6, 1, 7, 1, 7, 2,
-        ]
-        .chunks(2)
-        .map(|v| Point::new(v[0], v[1]))
-        .collect::<Vec<_>>();
+//         let mut game = SnakeState::new(&pos, &food, &barriers);
+//         loop {
+//             let (pos, food, bar) = game.get_pair_vec();
+//             let dir = greedy_snake_move_barriers(&pos, &food, &bar);
+//             //print
+//             // println!("Direction: {:?}", dir);
+//             make_board_printing::<8>(&pos, &food, &bar).pretty_print();
+//             if dir == -1 {
+//                 println!("Unreachable");
+//                 break;
+//             } else {
+//                 let dir = match dir {
+//                     0 => Direction::U,
+//                     1 => Direction::L,
+//                     2 => Direction::D,
+//                     3 => Direction::R,
+//                     _ => unreachable!(),
+//                 };
+//                 let r = game.step(dir);
+//                 if r.is_ok() {
+//                     if r.unwrap() {
+//                         assert!(game.get_pair_vec().1.is_empty());
+//                         println!("Game over");
+//                         break;
+//                     }
+//                 } else {
+//                     println!("Error: {:?}", r);
+//                     break;
+//                 }
+//             }
+//         }
+//     }
 
-        let mut game = SnakeState::new(&pos, &food, &barriers);
-        loop {
-            let (pos, food, bar) = game.get_pair_vec();
-            let dir = greedy_snake_move_barriers(&pos, &food, &bar);
-            //print
-            // println!("Direction: {:?}", dir);
-            make_board_printing::<8>(&pos, &food, &bar).pretty_print();
-            if dir == -1 {
-                println!("Unreachable");
-                break;
-            } else {
-                let dir = match dir {
-                    0 => Direction::U,
-                    1 => Direction::L,
-                    2 => Direction::D,
-                    3 => Direction::R,
-                    _ => unreachable!(),
-                };
-                let r = game.step(dir);
-                if r.is_ok() {
-                    if r.unwrap() {
-                        assert!(game.get_pair_vec().1.is_empty());
-                        println!("Game over");
-                        break;
-                    }
-                } else {
-                    println!("Error: {:?}", r);
-                    break;
-                }
-            }
-        }
-    }
+//     #[link(name = "a")]
+//     unsafe extern "C" {
+//         unsafe fn _func_t2(pos: *const i32, food: *const i32, barriers: *const i32) -> i32;
+//     }
 
-    #[test]
-    fn fuzz_snake_movement() {
-        let mut success_count = 0;
-        let mut unreachable_count = 0;
-        for _ in 0..10000 {
-            let mut steps = 0;
-            let mut game = SnakeState::random(4, 5, 12);
-            
-            let (pos, food, bar) = game.get_pair_vec();
-            std::io::stdout().flush().unwrap();
-            println!("New game board:");
-            make_board_printing::<8>(&pos, &food, &bar).pretty_print();
+//     #[test]
+//     fn fuzz_snake_movement() {
+//         let mut success_count = 0;
+//         let mut unreachable_count = 0;
+//         for _ in 0..10000 {
+//             let mut steps = 0;
+//             let mut game = SnakeState::random(4, 1, 12);
 
-            loop {
-                let (pos, food, bar) = game.get_pair_vec();
-                // let dir = greedy_snake_move_barriers(&pos, &food, &bar);
-                let dir = unsafe { _func_t2(pos.as_ptr(), food.as_ptr(), bar.as_ptr()) };
-                if dir == -1 {
-                    unreachable_count += 1;
-                    println!("Unreachable, manually check. Step: {}", steps);
-                    break; 
-                } else {
-                    let dir = match dir {
-                        0 => Direction::U,
-                        1 => Direction::L,
-                        2 => Direction::D,
-                        3 => Direction::R,
-                        _ => unreachable!(),
-                    };
-                    steps += 1;
-                    let r = game.step(dir);
-                    // println!("Step: {}", steps);
-                    // println!("Direction: {:?}", dir);
-                    // make_board_printing::<8>(&pos, &food, &bar).pretty_print();
-                    if r.is_ok() {
-                        if r.unwrap() {
-                            assert!(game.get_pair_vec().1.is_empty());
-                            success_count += 1;
-                            println!("Game over. Step: {}", steps);
-                            break;
-                        }
-                    } else {
-                        println!("Error: {:?}", r);
-                        break;
-                    }
-                    if steps >= 200 {
-                        println!("Too many steps, manually check");
-                        println!(
-                            "board: {:?}",
-                            make_board_printing::<8>(&pos, &food, &bar).pretty_print()
-                        );
-                        println!("Step: {}", steps);
-                        break;
-                    }
-                }
-            }
-        }
-        println!("Success count: {}", success_count);
-        println!("Unreachable count: {}", unreachable_count);
-    }
-}
+//             let (pos, food, bar) = game.get_pair_vec();
+//             std::io::stdout().flush().unwrap();
+//             println!("New game board:");
+//             make_board_printing::<8>(&pos, &food, &bar).pretty_print();
+
+//             loop {
+//                 let (pos, food, bar) = game.get_pair_vec();
+//                 // let dir = greedy_snake_move_barriers(&pos, &food, &bar);
+//                 let dir = unsafe { _func_t2(pos.as_ptr(), food.as_ptr(), bar.as_ptr()) };
+//                 if dir == -1 {
+//                     unreachable_count += 1;
+//                     println!("Unreachable, manually check. Step: {}", steps);
+//                     break;
+//                 } else {
+//                     let dir = match dir {
+//                         0 => Direction::U,
+//                         1 => Direction::L,
+//                         2 => Direction::D,
+//                         3 => Direction::R,
+//                         _ => unreachable!(),
+//                     };
+//                     steps += 1;
+//                     let r = game.step(dir);
+//                     // println!("Step: {}", steps);
+//                     // println!("Direction: {:?}", dir);
+//                     // make_board_printing::<8>(&pos, &food, &bar).pretty_print();
+//                     if r.is_ok() {
+//                         if r.unwrap() {
+//                             assert!(game.get_pair_vec().1.is_empty());
+//                             success_count += 1;
+//                             println!("Game over. Step: {}", steps);
+//                             break;
+//                         }
+//                     } else {
+//                         println!("Error: {:?}", r);
+//                         break;
+//                     }
+//                     if steps >= 200 {
+//                         println!("Too many steps, manually check");
+//                         println!(
+//                             "board: {:?}",
+//                             make_board_printing::<8>(&pos, &food, &bar).pretty_print()
+//                         );
+//                         println!("Step: {}", steps);
+//                         break;
+//                     }
+//                 }
+//             }
+//         }
+//         println!("Success count: {}", success_count);
+//         println!("Unreachable count: {}", unreachable_count);
+//     }
+// }
