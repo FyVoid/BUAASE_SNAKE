@@ -141,7 +141,61 @@ def save_raw():
     agent.policy_net.load_state_dict(model)
     for name, param in agent.policy_net.named_parameters():
         with open(config.MODEL_SAVE_PATH.replace(".pth", name + ".txt"), 'w') as f:
-            f.write(str(param.data.cpu().numpy().tolist()))
+            data = param.data.cpu().numpy().tolist()
+            if name.find('conv') != -1:
+                if name.find('bias') != -1:
+                    f.write("{")
+                    for i, item in enumerate(data):
+                        if i == len(data) - 1:
+                            f.write('{:.4f}'.format(item))
+                        else:
+                            f.write('{:.4f}, '.format(item))
+                    f.write('}')
+                else:
+                    f.write('{')
+                    for i, lst1 in enumerate(data):
+                        # f.write('{')
+                        for j, lst2 in enumerate(lst1):
+                            # f.write('{')
+                            for k, lst3 in enumerate(lst2):
+                                # f.write('{')
+                                for q, item in enumerate(lst3):
+                                    # if q == len(lst3) - 1:
+                                    #     f.write('{:.4f}'.format(item))
+                                    # else:
+                                        f.write('{:.4f}, '.format(item))
+                                # f.write('}')
+                                # if k != len(lst2) - 1:
+                                #     f.write(',')
+                            # f.write('}')
+                    #         if j != len(lst1) - 1:
+                    #             f.write(',')
+                    #     f.write('}')
+                    #     if i != len(data) - 1:
+                    #         f.write(',')
+                    f.write('}')
+            else:
+                if name.find('bias') != -1:
+                    f.write("{")
+                    for i, item in enumerate(data):
+                        if i == len(data) - 1:
+                            f.write('{:.4f}'.format(item))
+                        else:
+                            f.write('{:.4f}, '.format(item))
+                    f.write('}')
+                else:
+                    f.write('{')
+                    for i, lst1 in enumerate(data):
+                        # f.write('{')
+                        for j, item in enumerate(lst1):
+                            # if j == len(lst1) - 1:
+                            #     f.write('{:.4f}'.format(item))
+                            # else:
+                                f.write('{:.4f}, '.format(item))
+                        # f.write('}')
+                        # if i != len(lst1) - 1:
+                        #     f.write(',')
+                    f.write('}')
     
 
 if __name__ == "__main__":

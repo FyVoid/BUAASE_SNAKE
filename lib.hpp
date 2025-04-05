@@ -120,9 +120,9 @@ public:
 
 Tensor permute(Tensor& input, std::vector<int32_t> index);
 
-Tensor relu(Tensor input);
+Tensor relu(Tensor& input);
 
-Tensor flatten(Tensor input);
+Tensor flatten(Tensor& input);
 
 class Model {
 public:
@@ -137,26 +137,26 @@ public:
           conv3(64, 32, 3, 1, 1),
           dense1(32 * 8 * 8, 4) {}
 
-    Model(Tensor& conv1_weights,
-          Tensor& conv1_bias,
-          Tensor& conv2_weights,
-          Tensor& conv2_bias,
-          Tensor& conv3_weights,
-          Tensor& conv3_bias,
-          Tensor& dense1_weights,
-          Tensor& dense1_bias)
+    Model(std::vector<float> conv1_weights,
+          std::vector<float> conv1_bias,
+          std::vector<float> conv2_weights,
+          std::vector<float> conv2_bias,
+          std::vector<float> conv3_weights,
+          std::vector<float> conv3_bias,
+          std::vector<float> dense1_weights,
+          std::vector<float> dense1_bias)
         : conv1(8, 32, 3, 1, 1),
           conv2(32, 64, 5, 1, 2),
           conv3(64, 32, 3, 1, 1),
           dense1(32 * 8 * 8, 4) {
-        conv1.weights = conv1_weights;
-        conv1.bias = conv1_bias;
-        conv2.weights = conv2_weights;
-        conv2.bias = conv2_bias;
-        conv3.weights = conv3_weights;
-        conv3.bias = conv3_bias;
-        dense1.weights = dense1_weights;
-        dense1.bias = dense1_bias;
+        conv1.weights.data = conv1_weights;
+        conv1.bias.data = conv1_bias;
+        conv2.weights.data = conv2_weights;
+        conv2.bias.data = conv2_bias;
+        conv3.weights.data = conv3_weights;
+        conv3.bias.data = conv3_bias;
+        dense1.weights.data = dense1_weights;
+        dense1.bias.data = dense1_bias;
     }
 
     Tensor forward(Tensor& input) {

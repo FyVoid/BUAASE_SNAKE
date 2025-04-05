@@ -1,7 +1,12 @@
 out:
-	em++ lib.cpp wrapper.cpp -O3 -o module.cjs \
+	em++ lib.cpp wrapper.cpp -o module.cjs \
+	-s ALLOW_MEMORY_GROWTH=1 \
+	-s INITIAL_MEMORY=128MB \
+	-s MAXIMUM_MEMORY=512MB \
+	-s SAFE_HEAP=1 -g \
 	-s EXPORTED_RUNTIME_METHODS='["cwrap", "ccall"]' \
-	-s WASM=1 -s MODULARIZE=1
+	-s WASM=1 \
+	-s MODULARIZE=1
 
 lib:
 	clang++ -c lib.cpp c_wrapper.cpp -O3 -static -stdlib=libc++

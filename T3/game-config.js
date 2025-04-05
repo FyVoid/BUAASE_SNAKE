@@ -8,7 +8,7 @@
 // import { greedy_snake_step as snake7 } from './t3-snake-{num}-{PL}/pkg/snake.js';
 // import { greedy_snake_step as snake8 } from './t3-snake-{num}-{PL}/pkg/snake.js';
 
-import { greedy_snake_step as snake1 } from './snake1v1/driver.js';
+import { greedy_snake_move as snake1 } from './bridge.js';
 
 // Game mode
 export const GAME_MODE = "1v1"; // "1v1" or "4snakes" or "custom"
