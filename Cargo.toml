@@ -1,7 +1,0 @@
-[workspace]
-resolver = "2"
-members = [
-    "G/g_rust",
-    "T1/t1_sln_rs",
-    "T2/t2_sln_rs"
-]

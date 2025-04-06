@@ -2,9 +2,9 @@ import assert from "assert";
 
 // Choose proper "import" depending on your PL.
 // import { greedySnakeMoveBarriers } from "./t2_as/build/release.js";
-import { greedy_snake_move_barriers as greedySnakeMoveBarriers } from "./t2_sln_rs/pkg/t2_sln_rs.js";
+// import { greedy_snake_move_barriers as greedySnakeMoveBarriers } from "./t2_sln_rs/pkg/t2_sln_rs.js";
 // [Write your own "import" for other PLs.]
-// import { greedy_snake_move as greedySnakeMoveBarriers } from "./bridge.js";
+import { greedy_snake_move as greedySnakeMoveBarriers } from "./bridge.js";
 
 function greedy_snake_barriers_checker(initial_snake, food_num, foods, barriers, access) {
     if (initial_snake.length !== 8) throw "Invalid snake length";

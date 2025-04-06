@@ -1,5 +1,5 @@
 // 从编译生成的 cjs 文件中导入 Wasm Module
-import Module from './module.cjs'
+import Module from './module_t2.cjs'
 
 // 考虑到真实网页场景，通过网络加载 wasm 可能很慢，所以 Module 是一个异步函数，
 // 而我们是本地的环境，这里直接 await 就好

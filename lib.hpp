@@ -26,6 +26,7 @@ struct Vec2 {
     }
 };
 
+#ifdef T3
 class Tensor {
 public:
     int32_t dim;
@@ -211,7 +212,14 @@ public:
         auto ret = dense1.forward(result);
         return ret;
     }
+
 };
+
+void model_2p_init(Model& model);
+    void model_4p_init(Model& model);
+    int32_t snake_move_t3(int32_t board_size, int32_t* snake_pos, int32_t enemy_count, int32_t* enemy_pos, int32_t food_num, int32_t* food_pos);
+
+#endif
 
 enum Direction {
     NONE = -1,
@@ -284,8 +292,10 @@ std::vector<T> make_vector(void* arr, int32_t size);
 Vec2 dir2Vec(Direction dir);
 
 int32_t default_snake_move(Vec2 head, Vec2 body1);
+#ifdef T1
 int32_t snake_move_t1(int32_t* snake_pos, int32_t* food_pos);
+#endif
+#ifdef T2
 std::vector<Snake> find_shortest_path(Snake& snake, Vec2 food, std::vector<Vec2>& barrier);
 int32_t snake_move_t2(int32_t* snake_pos, int32_t* food_pos, int32_t* barrier_pos);
-void model_1v1_init(Model& model);
-int32_t snake_inference(int32_t board_size, int32_t* snake_pos, int32_t enemy_count, int32_t* enemy_pos, int32_t food_num, int32_t* food_pos);
+#endif

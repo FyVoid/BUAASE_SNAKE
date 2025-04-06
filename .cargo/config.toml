@@ -1,2 +1,0 @@
-# [build]
-# rustflags = ["-L", "/Users/iris/Projects/BUAASE_SNAKE/T2/t2_sln_rs/lib", "-lc++"]
