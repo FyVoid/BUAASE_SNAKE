@@ -1,8 +1,8 @@
 .DS_Store
 
 .vscode/
-module.cjs
-module.wasm
+./module.cjs
+./module.wasm
 
 *.txt
 *.txt.out
